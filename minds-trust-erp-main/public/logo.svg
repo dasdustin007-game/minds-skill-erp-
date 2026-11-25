@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <linearGradient id="careGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1b4d3e" />
+      <stop offset="100%" stop-color="#2a7a63" />
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="14" fill="url(#careGrad)"/>
+  <!-- Two hands holding a sprouting leaf and heart -->
+  <path d="M24 13 C21 9 15 10 15 16 C15 22 24 28 24 28 C24 28 33 22 33 16 C33 10 27 9 24 13 Z" fill="#bbf7d0"/>
+  <path d="M14 30 C18 34 22 36 24 37 C26 36 30 34 34 30 C36 32 37 34 34 37 C30 40 25 41 24 41 C23 41 18 40 14 37 C11 34 12 32 14 30 Z" fill="#ffffff" opacity="0.9"/>
+  <circle cx="24" cy="21" r="2.5" fill="#1b4d3e"/>
+</svg>
+
