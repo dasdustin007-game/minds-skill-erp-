@@ -312,8 +312,8 @@ function renderPortalShell(container) {
   if (portal === 'ADMIN') {
     menuItems = [
       { id: 'dashboard', label: 'Dashboard Overview', icon: 'dashboard' },
-      { id: 'tasks', label: 'Task & Workflow Governance', icon: 'assignment_turned_in' },
-      { id: 'hierarchy', label: 'Student & User Hierarchy', icon: 'account_tree' },
+      { id: 'tasks', label: 'Employee Management', icon: 'badge' },
+      { id: 'hierarchy', label: 'Admin Task Workflow', icon: 'account_tree' },
       { id: 'programs', label: 'Program Management', icon: 'school' },
       { id: 'students', label: 'Student Management', icon: 'groups' },
       { id: 'certificates', label: 'Certificate Engine', icon: 'workspace_premium' },
@@ -542,12 +542,24 @@ function renderPortalView() {
 async function renderAdminDashboard(mount) {
   mount.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b;">Loading MINDS TRUST ERP Dashboard Overview...</div>`;
   try {
-    const res = await api('/api/admin/overview');
-    const bRes = await api('/api/admin/special-dates');
+    let res = { stats: {}, pendingApprovals: [] };
+    let bRes = { birthdayList: [] };
 
-    const s = res.stats || {};
-    const approvals = res.pendingApprovals || [];
-    const bdays = (bRes.birthdayList || []).slice(0, 5);
+    try {
+      res = await api('/api/admin/overview');
+    } catch (e) {
+      console.warn('Overview API fetch issue:', e);
+    }
+
+    try {
+      bRes = await api('/api/admin/special-dates');
+    } catch (e) {
+      console.warn('Special dates API fetch issue:', e);
+    }
+
+    const s = res?.stats || {};
+    const approvals = res?.pendingApprovals || [];
+    const bdays = Array.isArray(bRes?.birthdayList) ? bRes.birthdayList.filter(b => b.category !== 'DONOR' && b.role !== 'Donor').slice(0, 5) : [];
 
     mount.innerHTML = `
       <div class="page-header-row">
@@ -555,7 +567,10 @@ async function renderAdminDashboard(mount) {
           <h1 class="page-header-title">MINDS TRUST ERP Dashboard Overview</h1>
           <p class="page-header-desc">Complete multi-portal operational intelligence across Students, Donors, Trainers & Finance.</p>
         </div>
-        <div class="page-actions">
+        <div class="page-actions" style="display:flex; gap:10px;">
+          <button class="btn btn-secondary" onclick="void renderAdminDashboard(document.getElementById('portal-content-mount'))">
+            <span class="material-icons-round" style="font-size:18px; vertical-align:middle; margin-right:4px;">refresh</span> Refresh
+          </button>
           <button class="btn btn-primary" onclick="void triggerCertEngine()">
             <span class="material-icons-round" style="font-size:18px; vertical-align:middle; margin-right:4px;">bolt</span> Run Certificate Engine
           </button>
@@ -567,7 +582,7 @@ async function renderAdminDashboard(mount) {
         <div class="stat-card hero-card">
           <div class="stat-card-top">
             <span class="stat-title">Active Students</span>
-            <span class="stat-icon-pill">↗</span>
+            <span class="stat-icon-pill"><span class="material-icons-round" style="font-size:16px;">trending_up</span></span>
           </div>
           <div class="stat-value">${s.activeStudents || 0}</div>
           <div class="stat-footer-badge">Total Enrolled: ${s.totalStudents || 0}</div>
@@ -576,7 +591,7 @@ async function renderAdminDashboard(mount) {
         <div class="stat-card">
           <div class="stat-card-top">
             <span class="stat-title">Registered Donors</span>
-            <span class="stat-icon-pill">↗</span>
+            <span class="stat-icon-pill"><span class="material-icons-round" style="font-size:16px;">trending_up</span></span>
           </div>
           <div class="stat-value">${s.totalDonors || 0}</div>
           <div class="stat-footer-badge" style="background:#fef3c7; color:#b45309;">Verified Donors</div>
@@ -585,7 +600,7 @@ async function renderAdminDashboard(mount) {
         <div class="stat-card">
           <div class="stat-card-top">
             <span class="stat-title">Certificates Issued</span>
-            <span class="stat-icon-pill">↗</span>
+            <span class="stat-icon-pill"><span class="material-icons-round" style="font-size:16px;">trending_up</span></span>
           </div>
           <div class="stat-value">${s.certsGenerated || 0}</div>
           <div class="stat-footer-badge" style="background:#e0f2fe; color:#0369a1;">Automated Gen</div>
@@ -594,7 +609,7 @@ async function renderAdminDashboard(mount) {
         <div class="stat-card">
           <div class="stat-card-top">
             <span class="stat-title">Finance Inflow</span>
-            <span class="stat-icon-pill">↗</span>
+            <span class="stat-icon-pill"><span class="material-icons-round" style="font-size:16px;">trending_up</span></span>
           </div>
           <div class="stat-value">₹${Number(s.totalFinanceInflow || 0).toLocaleString('en-IN')}</div>
           <div class="stat-footer-badge" style="background:#dcfce7; color:#15803d;">Admin Monitored</div>
@@ -615,12 +630,12 @@ async function renderAdminDashboard(mount) {
           </div>
           <div class="card-body" style="padding:14px 20px;">
             <div style="display:flex; flex-direction:column; gap:12px;">
-              ${bdays.length === 0 ? `<div class="empty-state">No upcoming birthdays recorded this week.</div>` :
+              ${bdays.length === 0 ? `<div class="empty-state" style="text-align:center; padding:20px; color:#64748b;">No upcoming birthdays recorded this week.</div>` :
         bdays.map(b => `
                   <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px;">
                     <div>
-                      <div style="font-weight:700; font-size:13.5px; color:#0f172a;">${b.name}</div>
-                      <div style="font-size:11.5px; color:#64748b;">DOB: ${b.dob} • Role: <strong>${b.role}</strong> (${b.category})</div>
+                      <div style="font-weight:700; font-size:13.5px; color:#0f172a;">${b.name || 'User'}</div>
+                      <div style="font-size:11.5px; color:#64748b;">DOB: ${b.dob || 'N/A'} • Role: <strong>${b.role || 'Staff'}</strong> (${b.category || 'User'})</div>
                     </div>
                     <div>
                       <span class="badge ${getDaysRemainingBadgeClass(b.days_remaining)}">
@@ -645,14 +660,14 @@ async function renderAdminDashboard(mount) {
           </div>
           <div class="card-body" style="padding:14px 20px;">
             <div style="display:flex; flex-direction:column; gap:12px;">
-              ${approvals.length === 0 ? `<div class="empty-state">All donation contributions verified!</div>` :
+              ${approvals.length === 0 ? `<div class="empty-state" style="text-align:center; padding:20px; color:#64748b;">All donation contributions verified!</div>` :
         approvals.map(a => `
                   <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px;">
                     <div>
-                      <div style="font-weight:700; font-size:13.5px; color:#0f172a;">Receipt ${a.receipt_no} - ₹${Number(a.amount).toLocaleString('en-IN')}</div>
-                      <div style="font-size:11.5px; color:#64748b;">Cause: ${a.purpose_name} • Payment: <strong>${a.payment_status}</strong></div>
+                      <div style="font-weight:700; font-size:13.5px; color:#0f172a;">Receipt ${a.receipt_no || ''} - ₹${Number(a.amount || 0).toLocaleString('en-IN')}</div>
+                      <div style="font-size:11.5px; color:#64748b;">Cause: ${a.purpose_name || 'General Donation'} • Payment: <strong>${a.payment_status || 'Pending'}</strong></div>
                     </div>
-                    <span class="badge badge-yellow">${a.doc_status}</span>
+                    <span class="badge badge-yellow">${a.doc_status || 'Pending'}</span>
                   </div>
                 `).join('')
       }
@@ -671,7 +686,7 @@ async function renderAdminDashboard(mount) {
           </h3>
         </div>
         <div class="card-body" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
-          <button class="btn btn-secondary" onclick="void switchView('tasks')"><span class="material-icons-round" style="font-size:17px; vertical-align:middle; margin-right:5px;">assignment_turned_in</span>Task & Workflow</button>
+          <button class="btn btn-secondary" onclick="void switchView('tasks')"><span class="material-icons-round" style="font-size:17px; vertical-align:middle; margin-right:5px;">assignment_turned_in</span>Task Workflow</button>
           <button class="btn btn-secondary" onclick="void switchView('hierarchy')"><span class="material-icons-round" style="font-size:17px; vertical-align:middle; margin-right:5px;">account_tree</span>User Hierarchy</button>
           <button class="btn btn-secondary" onclick="switchView('students')"><span class="material-icons-round" style="font-size:17px; vertical-align:middle; margin-right:5px;">school</span>Student Records</button>
           <button class="btn btn-secondary" onclick="switchView('donors')"><span class="material-icons-round" style="font-size:17px; vertical-align:middle; margin-right:5px;">volunteer_activism</span>Donor Audits</button>
@@ -683,7 +698,16 @@ async function renderAdminDashboard(mount) {
       </div>
     `;
   } catch (err) {
-    mount.innerHTML = `<div style="padding:40px; text-align:center; color:#dc2626;">Failed to load dashboard overview: ${err.message}</div>`;
+    mount.innerHTML = `
+      <div style="padding:40px; text-align:center; color:#dc2626;">
+        <span class="material-icons-round" style="font-size:48px; color:#ef4444; margin-bottom:12px;">error_outline</span>
+        <div style="font-weight:700; font-size:16px; margin-bottom:8px;">Failed to load dashboard overview</div>
+        <div style="font-size:13px; color:#64748b; margin-bottom:16px;">${err.message}</div>
+        <button class="btn btn-primary" onclick="void renderAdminDashboard(document.getElementById('portal-content-mount'))">
+          <span class="material-icons-round" style="font-size:16px; vertical-align:middle; margin-right:4px;">refresh</span> Retry Loading
+        </button>
+      </div>
+    `;
   }
 }
 
@@ -696,13 +720,14 @@ window.triggerCertEngine = async function () {
 // 3.2 Special Days Detailed View
 async function renderSpecialDatesView(mount) {
   const res = await api('/api/admin/special-dates');
-  const list = res.birthdayList || [];
+  const rawList = res.birthdayList || [];
+  const list = rawList.filter(b => b.category !== 'DONOR' && b.role !== 'Donor');
 
   mount.innerHTML = `
     <div class="page-header-row">
       <div>
         <h1 class="page-header-title">Birthday & Special-Day Management</h1>
-        <p class="page-header-desc">Configurable records across Students, Trainers, and Donors with days remaining calculations.</p>
+        <p class="page-header-desc">Configurable records across Students and Trainers with days remaining calculations.</p>
       </div>
       <div class="page-actions">
         <button class="btn btn-secondary" onclick="exportTableToCSV('birthday-table', 'special-days-report.csv')">Export CSV Report</button>
@@ -1691,7 +1716,7 @@ function renderCourseCertificateAction(s, c, isCompleted, hasCert) {
 }
 
 window.openStudentDetailsModal = function (s) {
-  const courses = s.courses && s.courses.length > 0 ? s.courses : [{
+  const courses = s.courses?.length ? s.courses : [{
     id: 0,
     course_name: s.program_name || s.enrolled_program,
     course_code: s.program_code || 'PRG-FSD-01',
@@ -3065,7 +3090,7 @@ async function renderStudentResourcesView(mount) {
 }
 
 window.openResourceViewer = function(r) {
-  if (r.file_or_link && (r.file_or_link.startsWith('http://') || r.file_or_link.startsWith('https://'))) {
+  if (r.file_or_link?.startsWith('http://') || r.file_or_link?.startsWith('https://')) {
     window.open(r.file_or_link, '_blank');
     return;
   }
@@ -4789,26 +4814,49 @@ function highlightMatch(text, query) {
   return text.replace(regex, '<mark style="background:#fef08a; color:#854d0e; padding:0 2px; border-radius:3px; font-weight:800;">$1</mark>');
 }
 
+function moveSearchSelection(delta, items) {
+  searchSelectedIndex = (searchSelectedIndex + delta + items.length) % items.length;
+  updateSearchSelection(items);
+}
+
+function selectCurrentSearchResult() {
+  if (searchSelectedIndex >= 0 && searchSelectedIndex < currentSearchResults.length) {
+    const r = currentSearchResults[searchSelectedIndex];
+    selectGlobalSearchResult(r.view, r.type, r.id, encodeURIComponent(r.title));
+  }
+}
+
+function isSearchDropdownActive(dropdown) {
+  return dropdown && dropdown.style.display !== 'none' && currentSearchResults.length > 0;
+}
+
+function handleSearchNavKey(key, items) {
+  if (key === 'ArrowDown') {
+    moveSearchSelection(1, items);
+    return true;
+  }
+  if (key === 'ArrowUp') {
+    moveSearchSelection(-1, items);
+    return true;
+  }
+  return false;
+}
+
 window.handleGlobalSearchKeydown = function (e) {
   const dropdown = document.getElementById('global-search-dropdown');
-  if (!dropdown || dropdown.style.display === 'none' || currentSearchResults.length === 0) return;
+  if (!isSearchDropdownActive(dropdown)) return;
 
   const items = dropdown.querySelectorAll('.search-result-item');
-  if (e.key === 'ArrowDown') {
+  if (handleSearchNavKey(e.key, items)) {
     e.preventDefault();
-    searchSelectedIndex = (searchSelectedIndex + 1) % items.length;
-    updateSearchSelection(items);
-  } else if (e.key === 'ArrowUp') {
+    return;
+  }
+  if (e.key === 'Enter') {
     e.preventDefault();
-    searchSelectedIndex = (searchSelectedIndex - 1 + items.length) % items.length;
-    updateSearchSelection(items);
-  } else if (e.key === 'Enter') {
-    e.preventDefault();
-    if (searchSelectedIndex >= 0 && searchSelectedIndex < currentSearchResults.length) {
-      const r = currentSearchResults[searchSelectedIndex];
-      selectGlobalSearchResult(r.view, r.type, r.id, encodeURIComponent(r.title));
-    }
-  } else if (e.key === 'Escape') {
+    selectCurrentSearchResult();
+    return;
+  }
+  if (e.key === 'Escape') {
     dropdown.style.display = 'none';
   }
 };
@@ -4917,7 +4965,7 @@ window.selectGlobalSearchResult = function (view, type, id, titleEncoded) {
 document.addEventListener('click', (e) => {
   const box = document.querySelector('.topbar-search-box');
   const dropdown = document.getElementById('global-search-dropdown');
-  if (dropdown && box && !box.contains(e.target) && !dropdown.contains(e.target)) {
+  if (dropdown && !box?.contains(e.target) && !dropdown.contains(e.target)) {
     dropdown.style.display = 'none';
   }
 });
@@ -4927,103 +4975,197 @@ document.addEventListener('click', (e) => {
 // 8. HIERARCHY-BASED STUDENT/USER MANAGEMENT & TASK GOVERNANCE
 // =========================================================================
 
-async function renderAdminHierarchyView(mount) {
-  mount.innerHTML = '<div style="text-align:center; padding:40px; color:#64748b;">Loading Organizational Hierarchy & Student User Directory...</div>';
-  try {
-    const res = await api('/api/admin/users-hierarchy');
-    const users = res.users || [];
+// =========================================================================
+// 8.1 ADMIN TASK MANAGEMENT & EMPLOYEE WORKFLOW MODULE
+// =========================================================================
 
-    const roleOrder = ['Admin', 'Manager', 'Team Leader', 'Staff', 'Student'];
+async function renderAdminHierarchyView(mount) {
+  mount.innerHTML = '<div style="text-align:center; padding:40px; color:#64748b;">Loading Admin Task Workflow...</div>';
+  try {
+    const [usersRes, tasksRes] = await Promise.all([
+      api('/api/admin/users-hierarchy'),
+      api('/api/admin/tasks')
+    ]);
+
+    const allUsers = usersRes.users || [];
+    const allTasks = tasksRes.tasks || [];
+
+    // Only Managers, Team Leaders, and Staff are operational employees for task management
+    const allowedTiers = ['Manager', 'Team Leader', 'Staff'];
+    const roleOrder = ['Manager', 'Team Leader', 'Staff'];
+
     const grouped = {};
-    roleOrder.forEach(r => grouped[r] = []);
-    users.forEach(u => {
-      const hRole = u.hierarchy_role || 'Staff';
-      if (hRole !== 'Donor' && grouped[hRole]) {
+    roleOrder.forEach(r => { grouped[r] = []; });
+
+    allUsers.forEach(u => {
+      const hRole = u.hierarchy_role;
+      if (allowedTiers.includes(hRole)) {
         grouped[hRole].push(u);
       }
     });
 
-    // Donors are excluded from internal organizational task assignment hierarchy
-    const assignableUsers = users.filter(u => u.hierarchy_role !== 'Donor' && u.portal_type !== 'DONOR');
+    // Employees to display: all users belonging to Manager, Team Leader, or Staff
+    const employees = allUsers.filter(u => allowedTiers.includes(u.hierarchy_role));
+
+    // Map each employee with their active tasks and task status overview
+    const employeesWithTasks = employees.map(u => {
+      const userTasks = allTasks.filter(t => t.assigned_to_user_id === u.id);
+      const activeTasks = userTasks.filter(t => {
+        const s = mapTaskStatus(t.status, t.deadline);
+        return s === 'In Progress' || s === 'Overdue';
+      });
+
+      // Determine composite status for employee
+      let currentStatus = 'Not Assigned';
+      if (userTasks.length > 0) {
+        const hasOverdue = userTasks.some(t => mapTaskStatus(t.status, t.deadline) === 'Overdue');
+        const hasInProgress = userTasks.some(t => mapTaskStatus(t.status, t.deadline) === 'In Progress');
+        const allCompleted = userTasks.every(t => mapTaskStatus(t.status, t.deadline) === 'Completed');
+
+        if (hasOverdue) {
+          currentStatus = 'Overdue';
+        } else if (hasInProgress) {
+          currentStatus = 'In Progress';
+        } else if (allCompleted) {
+          currentStatus = 'Completed';
+        }
+      }
+
+      return {
+        ...u,
+        allUserTasks: userTasks,
+        activeTasksList: activeTasks,
+        activeTasksCount: activeTasks.length,
+        currentStatus
+      };
+    });
 
     mount.innerHTML = `
-      <div class="page-header-row">
+      <div class="page-header-row" style="margin-bottom:16px;">
         <div>
-          <h1 class="page-header-title">Student & User Organizational Hierarchy</h1>
-          <p class="page-header-desc">Multi-tier role management: Admin ➔ Manager ➔ Team Leader ➔ Staff / Student. Control assignments & reporting relationships.</p>
-        </div>
-        <div class="page-actions">
-          <button class="btn btn-primary" onclick="void openCreateTaskModal()">
-            <span class="material-icons-round" style="font-size:18px; vertical-align:middle; margin-right:4px;">add_task</span> Assign Task to User
-          </button>
+          <h1 class="page-header-title">Admin Task Workflow</h1>
+          <p class="page-header-desc">Centralized monitoring of employee task assignments, deadlines, completion rates, and audit logs.</p>
         </div>
       </div>
 
-      <!-- Hierarchy Summary Cards -->
-      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px; margin-bottom:20px;">
+      <!-- Hierarchy Tiers: Only Manager, Team Leader, Staff -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px; margin-bottom:24px;">
         ${roleOrder.map(r => `
-          <div style="background:#ffffff; border-radius:14px; border:1px solid #e2e8f0; padding:14px 16px; border-left:4px solid ${getRoleColor(r)};">
-            <div style="font-size:11.5px; font-weight:700; color:#64748b; text-transform:uppercase;">${r} Tier</div>
-            <div style="font-size:22px; font-weight:800; color:#0f172a; margin-top:4px;">${grouped[r]?.length || 0}</div>
-            <div style="font-size:11px; color:#94a3b8; margin-top:2px;">Configured Users</div>
+          <div style="background:#ffffff; border-radius:14px; border:1px solid #e2e8f0; padding:16px 18px; border-left:4px solid ${getRoleColor(r)}; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+            <div style="font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">${r} Tier</div>
+            <div style="font-size:24px; font-weight:800; color:#0f172a; margin-top:6px;">${grouped[r]?.length || 0}</div>
+            <div style="font-size:11.5px; color:#94a3b8; margin-top:3px;">Operational Team Members</div>
           </div>
         `).join('')}
       </div>
 
-      <!-- Users Hierarchy Table -->
+      <!-- Employee Information Table -->
       <div class="card">
         <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
           <h3 class="card-title" style="display:flex; align-items:center; gap:8px;">
-            <span class="material-icons-round" style="color:#154d34; font-size:20px;">account_tree</span>
-            Hierarchy Directory & Assigned Responsibilities
+            <span class="material-icons-round" style="color:#154d34; font-size:20px;">badge</span>
+            Assigned Employees & Task Performance Overview
           </h3>
-          <span class="badge badge-green">${assignableUsers.length} Operational Users</span>
+          <span class="badge badge-green">${employeesWithTasks.length} Active Employees</span>
         </div>
         <div class="table-responsive">
           <table class="data-table" style="min-width:1000px; width:100%; border-collapse:collapse;">
             <thead>
               <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0;">
-                <th style="padding:14px 18px; min-width:240px;">User / Name</th>
+                <th style="padding:14px 18px; min-width:230px;">User Name</th>
                 <th style="padding:14px 18px; width:140px;">Hierarchy Role</th>
                 <th style="padding:14px 18px; width:120px;">Portal Type</th>
                 <th style="padding:14px 18px; min-width:180px;">Reporting To</th>
-                <th style="padding:14px 18px; width:130px;">Active Tasks</th>
-                <th style="padding:14px 18px; width:110px;">Status</th>
-                <th style="padding:14px 18px; width:140px;">Actions</th>
+                <th style="padding:14px 18px; width:130px; text-align:center;">Active Tasks</th>
+                <th style="padding:14px 18px; width:140px; text-align:center;">Status</th>
+                <th style="padding:14px 18px; width:120px; text-align:center;">History</th>
               </tr>
             </thead>
             <tbody>
-              ${assignableUsers.map(u => {
-                const manager = users.find(m => m.id === u.reports_to_user_id);
+              ${employeesWithTasks.map(u => {
+                const manager = allUsers.find(m => m.id === u.reports_to_user_id);
+                
+                // Status badge styling
+                let statusBadgeCls = 'badge-gray';
+                let statusStyle = 'background:#f1f5f9; color:#64748b;';
+                if (u.currentStatus === 'Completed') {
+                  statusBadgeCls = 'badge-green';
+                  statusStyle = '';
+                } else if (u.currentStatus === 'Overdue') {
+                  statusBadgeCls = 'badge-red';
+                  statusStyle = 'background:#fee2e2; color:#991b1b;';
+                } else if (u.currentStatus === 'In Progress') {
+                  statusBadgeCls = 'badge-blue';
+                  statusStyle = '';
+                }
+
                 return `
-                  <tr style="border-bottom:1px solid #f1f5f9;">
+                  <tr style="border-bottom:1px solid #f1f5f9; transition:background 0.15s ease;">
+                    <!-- 1. User Name (Clickable to view full employee task history) -->
                     <td style="padding:14px 18px; vertical-align:middle;">
-                      <div style="font-weight:800; color:#0f172a; font-size:13.5px;">${u.full_name}</div>
-                      <div style="font-size:11.5px; color:#64748b; margin-top:2px;">User ID: <strong>${u.user_id}</strong> • ${u.email}</div>
+                      <div 
+                        onclick="void openEmployeeTaskHistoryModal(${u.id})" 
+                        style="font-weight:800; color:#0f172a; font-size:14px; cursor:pointer;"
+                        onmouseover="this.style.color='#154d34'; this.style.textDecoration='underline';" 
+                        onmouseout="this.style.color='#0f172a'; this.style.textDecoration='none';"
+                        title="Click to view complete employee task history"
+                      >
+                        ${u.full_name}
+                      </div>
+                      <div style="font-size:11.5px; color:#64748b; margin-top:2px;">
+                        User ID: <strong>${u.user_id}</strong> • ${u.email}
+                      </div>
                     </td>
+
+                    <!-- 2. Hierarchy Role -->
                     <td style="padding:14px 18px; vertical-align:middle;">
                       <span class="badge" style="background:${getRoleBg(u.hierarchy_role)}; color:${getRoleColor(u.hierarchy_role)}; font-weight:700; padding:4px 10px;">
                         ${u.hierarchy_role}
                       </span>
                     </td>
-                    <td style="padding:14px 18px; vertical-align:middle;"><span class="badge" style="background:#f1f5f9; color:#475569;">${u.portal_type}</span></td>
+
+                    <!-- 3. Portal Type -->
+                    <td style="padding:14px 18px; vertical-align:middle;">
+                      <span class="badge" style="background:#f1f5f9; color:#475569;">${u.portal_type}</span>
+                    </td>
+
+                    <!-- 4. Reporting To -->
                     <td style="padding:14px 18px; vertical-align:middle; font-size:12.5px; color:#334155;">
-                      ${manager ? `${manager.full_name} <span style="font-size:10.5px; color:#64748b;">(${manager.hierarchy_role})</span>` : '<em>Managing Trustee (Top)</em>'}
+                      ${manager ? `${manager.full_name} <span style="font-size:10.5px; color:#64748b;">(${manager.hierarchy_role})</span>` : '<em>Admin / Managing Trustee</em>'}
                     </td>
-                    <td style="padding:14px 18px; vertical-align:middle;">
-                      ${(() => {
-                        const hasTasks = u.assigned_tasks_count > 0;
-                        const badgeCls = hasTasks ? 'badge-green' : '';
-                        const badgeStyle = hasTasks ? '' : 'background:#f1f5f9; color:#64748b;';
-                        return `<span class="badge ${badgeCls}" style="${badgeStyle}">
-                          ${u.assigned_tasks_count} Task(s)
-                        </span>`;
-                      })()}
+
+                    <!-- 5. Active Tasks (Clickable count to view specific active tasks) -->
+                    <td style="padding:14px 18px; vertical-align:middle; text-align:center;">
+                      ${u.activeTasksCount > 0 ? `
+                        <button 
+                          class="btn btn-sm" 
+                          onclick="void openEmployeeActiveTasksModal(${u.id})" 
+                          style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:800; padding:4px 12px; border-radius:12px; cursor:pointer;"
+                          title="Click to view ${u.activeTasksCount} active tasks for ${u.full_name}"
+                        >
+                          ${u.activeTasksCount} Active
+                        </button>
+                      ` : `
+                        <span style="font-size:12px; color:#94a3b8; font-weight:500;">0 Tasks</span>
+                      `}
                     </td>
-                    <td style="padding:14px 18px; vertical-align:middle;"><span class="badge badge-green">${u.status || 'Active'}</span></td>
-                    <td style="padding:14px 18px; vertical-align:middle;">
-                      <button class="btn btn-secondary btn-sm" onclick="void openCreateTaskModal(${u.id}, '${escapeJsArg(u.full_name)}', '${u.hierarchy_role}')" style="white-space:nowrap;">
-                        <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">add_task</span> Assign Task
+
+                    <!-- 6. Status Column -->
+                    <td style="padding:14px 18px; vertical-align:middle; text-align:center;">
+                      <span class="badge ${statusBadgeCls}" style="${statusStyle} padding:4px 10px; font-weight:700; font-size:11.5px;">
+                        ${u.currentStatus}
+                      </span>
+                    </td>
+
+                    <!-- 7. History Column (Replaced Actions) -->
+                    <td style="padding:14px 18px; vertical-align:middle; text-align:center;">
+                      <button 
+                        class="btn btn-secondary btn-sm" 
+                        onclick="void openEmployeeTaskHistoryModal(${u.id})" 
+                        style="padding:5px 12px; font-size:12px; white-space:nowrap;"
+                        title="View complete task & performance history"
+                      >
+                        <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">history</span> History
                       </button>
                     </td>
                   </tr>
@@ -5035,9 +5177,184 @@ async function renderAdminHierarchyView(mount) {
       </div>
     `;
   } catch (err) {
-    mount.innerHTML = `<div style="padding:40px; text-align:center; color:#dc2626;">Failed to load user hierarchy: ${err.message}</div>`;
+    mount.innerHTML = `<div style="padding:40px; text-align:center; color:#dc2626;">Failed to load task management: ${err.message}</div>`;
   }
 }
+
+// Modal: Display specific active tasks for a chosen employee
+window.openEmployeeActiveTasksModal = async function (userId) {
+  const [usersRes, tasksRes] = await Promise.all([
+    api('/api/admin/users-hierarchy'),
+    api('/api/admin/tasks')
+  ]);
+  const user = (usersRes.users || []).find(u => u.id === userId);
+  if (!user) return;
+
+  const allTasks = tasksRes.tasks || [];
+  const activeTasks = allTasks.filter(t => {
+    if (t.assigned_to_user_id !== userId) return false;
+    const s = mapTaskStatus(t.status, t.deadline);
+    return s === 'In Progress' || s === 'Overdue';
+  });
+
+  showModal(`Active Tasks: ${user.full_name} (${user.hierarchy_role})`, `
+    <div>
+      <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px; margin-bottom:16px;">
+        <div style="font-weight:700; font-size:14px; color:#0f172a;">${user.full_name}</div>
+        <div style="font-size:12px; color:#64748b; margin-top:2px;">User ID: ${user.user_id} • Hierarchy Role: <strong>${user.hierarchy_role}</strong></div>
+      </div>
+
+      ${activeTasks.length === 0 ? `
+        <div style="padding:30px; text-align:center; color:#64748b; font-size:13px;">No active tasks currently assigned.</div>
+      ` : `
+        <div style="display:flex; flex-direction:column; gap:12px; max-height:400px; overflow-y:auto; padding-right:4px;">
+          ${activeTasks.map(t => {
+            const status = mapTaskStatus(t.status, t.deadline);
+            const isOverdue = status === 'Overdue';
+            return `
+              <div style="background:#ffffff; border:1px solid ${isOverdue ? '#fca5a5' : '#e2e8f0'}; border-left:4px solid ${isOverdue ? '#dc2626' : '#0284c7'}; border-radius:10px; padding:12px 14px;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+                  <div>
+                    <div style="font-weight:700; font-size:13.5px; color:#0f172a;">${t.title}</div>
+                    <div style="font-size:11.5px; color:#64748b; margin-top:3px;">
+                      Code: <strong>${t.task_code}</strong> • Type: ${t.task_type || 'General'} • Priority: <span class="badge ${getPriorityBadgeClass(t.priority)}" style="font-size:10px; padding:1px 6px;">${t.priority}</span>
+                    </div>
+                  </div>
+                  <span class="badge ${getTaskStatusBadgeClass(status)}" style="padding:3px 8px; font-size:11px;">
+                    ${status}
+                  </span>
+                </div>
+                <div style="margin-top:8px; font-size:12px; color:#334155; display:flex; justify-content:space-between;">
+                  <span>Assigned: ${formatDisplayDate(t.start_date || t.created_at)}</span>
+                  <span style="font-weight:700; color:${isOverdue ? '#dc2626' : '#334155'};">Deadline: ${formatDisplayDate(t.deadline)}</span>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `}
+      <div style="display:flex; justify-content:flex-end; margin-top:20px; border-top:1px solid #e2e8f0; padding-top:12px;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">Close</button>
+      </div>
+    </div>
+  `);
+};
+
+// Modal: Complete Employee Task Performance & Audit History
+window.openEmployeeTaskHistoryModal = async function (userId) {
+  const [usersRes, tasksRes] = await Promise.all([
+    api('/api/admin/users-hierarchy'),
+    api('/api/admin/tasks')
+  ]);
+  const user = (usersRes.users || []).find(u => u.id === userId);
+  if (!user) return;
+
+  const allTasks = tasksRes.tasks || [];
+  
+  // All tasks ever assigned to this user
+  const userTasks = allTasks.filter(t => t.assigned_to_user_id === userId);
+  
+  // Task statistics
+  const totalAssigned = userTasks.length;
+  let completedWithinDeadline = 0;
+  let completedAfterDeadline = 0;
+  let overdueTasksCount = 0;
+  let reassignedByAdminCount = 0;
+
+  userTasks.forEach(t => {
+    const s = mapTaskStatus(t.status, t.deadline);
+    if (s === 'Completed') {
+      const dead = new Date(t.deadline);
+      const subDate = t.submission_date ? new Date(t.submission_date) : new Date(t.updated_at);
+      if (!isNaN(dead.getTime()) && !isNaN(subDate.getTime()) && subDate > dead) {
+        completedAfterDeadline++;
+      } else {
+        completedWithinDeadline++;
+      }
+    } else if (s === 'Overdue') {
+      overdueTasksCount++;
+    }
+
+    if (t.status === 'Reassigned' || (t.instructions && t.instructions.includes('Reassigned'))) {
+      reassignedByAdminCount++;
+    }
+  });
+
+  showModal(`Employee Task History: ${user.full_name}`, `
+    <div>
+      <!-- Employee Profile Summary -->
+      <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:18px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div>
+            <div style="font-weight:800; font-size:16px; color:#0f172a;">${user.full_name}</div>
+            <div style="font-size:12px; color:#64748b; margin-top:2px;">
+              Role: <strong>${user.hierarchy_role}</strong> • User ID: <strong>${user.user_id}</strong> • Email: ${user.email}
+            </div>
+          </div>
+          <span class="badge" style="background:${getRoleBg(user.hierarchy_role)}; color:${getRoleColor(user.hierarchy_role)}; font-weight:700; padding:4px 12px; font-size:12px;">
+            ${user.hierarchy_role} Tier
+          </span>
+        </div>
+      </div>
+
+      <!-- Performance Analytics Cards -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-bottom:20px;">
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:12px; text-align:center;">
+          <div style="font-size:11px; color:#64748b; font-weight:700;">TOTAL ASSIGNED</div>
+          <div style="font-size:20px; font-weight:800; color:#0f172a; margin-top:4px;">${totalAssigned}</div>
+        </div>
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:12px; text-align:center; border-top:3px solid #16a34a;">
+          <div style="font-size:11px; color:#166534; font-weight:700;">ON-TIME COMPLETED</div>
+          <div style="font-size:20px; font-weight:800; color:#16a34a; margin-top:4px;">${completedWithinDeadline}</div>
+        </div>
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:12px; text-align:center; border-top:3px solid #ca8a04;">
+          <div style="font-size:11px; color:#854d0e; font-weight:700;">LATE COMPLETED</div>
+          <div style="font-size:20px; font-weight:800; color:#ca8a04; margin-top:4px;">${completedAfterDeadline}</div>
+        </div>
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:12px; text-align:center; border-top:3px solid #dc2626;">
+          <div style="font-size:11px; color:#991b1b; font-weight:700;">OVERDUE</div>
+          <div style="font-size:20px; font-weight:800; color:#dc2626; margin-top:4px;">${overdueTasksCount}</div>
+        </div>
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:12px; text-align:center; border-top:3px solid #7c3aed;">
+          <div style="font-size:11px; color:#5b21b6; font-weight:700;">REASSIGNED / SWITCHED</div>
+          <div style="font-size:20px; font-weight:800; color:#7c3aed; margin-top:4px;">${reassignedByAdminCount}</div>
+        </div>
+      </div>
+
+      <!-- Historical Assignments List -->
+      <div style="font-size:13px; font-weight:700; color:#0f172a; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+        <span class="material-icons-round" style="font-size:18px; color:#154d34;">history_edu</span>
+        Task History & Completion Records
+      </div>
+
+      ${userTasks.length === 0 ? `
+        <div style="padding:24px; text-align:center; color:#64748b; font-size:12.5px; background:#f8fafc; border-radius:8px;">No task assignment history recorded for this employee.</div>
+      ` : `
+        <div style="display:flex; flex-direction:column; gap:10px; max-height:300px; overflow-y:auto; padding-right:4px;">
+          ${userTasks.map(t => {
+            const status = mapTaskStatus(t.status, t.deadline);
+            return `
+              <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:12px 14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <span style="font-weight:700; font-size:13px; color:#0f172a;">${t.title}</span>
+                  <span class="badge ${getTaskStatusBadgeClass(status)}" style="padding:2px 8px; font-size:11px;">${status}</span>
+                </div>
+                <div style="font-size:11.5px; color:#64748b; margin-top:4px;">
+                  Code: <strong>${t.task_code}</strong> • Assigned: ${formatDisplayDate(t.start_date || t.created_at)} • Deadline: ${formatDisplayDate(t.deadline)}
+                </div>
+                ${t.instructions ? `<div style="font-size:11px; color:#475569; margin-top:4px; font-style:italic;">Instructions: ${t.instructions}</div>` : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `}
+
+      <div style="display:flex; justify-content:flex-end; margin-top:20px; border-top:1px solid #e2e8f0; padding-top:12px;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">Close</button>
+      </div>
+    </div>
+  `);
+};
 
 function getRoleColor(r) {
   if (r === 'Admin') return '#154d34';
@@ -5066,208 +5383,220 @@ function getPriorityBadgeClass(p) {
   return '';
 }
 
-function getTaskStatusBadgeClass(s) {
-  if (s === 'Approved' || s === 'Completed') return 'badge-green';
-  if (s === 'Submitted for Review') return 'badge-blue';
-  if (s === 'Revision Required' || s === 'Rejected') return 'badge-red';
-  if (s === 'In Progress') return 'badge-yellow';
-  if (s === 'Reassigned') return 'badge';
-  return '';
+function formatDisplayDate(dateStr) {
+  if (!dateStr) return 'N/A';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${day} ${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-// 8.2 Admin Task Management & Workflow Governance View
+function mapTaskStatus(status, deadline) {
+  if (status === 'Approved' || status === 'Completed') return 'Completed';
+  if (status === 'Revision Required' || status === 'Rejected') return 'Overdue';
+  if (deadline) {
+    const dead = new Date(deadline);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (!isNaN(dead.getTime()) && dead < today && status !== 'Completed' && status !== 'Approved') {
+      return 'Overdue';
+    }
+  }
+  return 'In Progress';
+}
+
+function getTaskStatusBadgeClass(s) {
+  if (s === 'Completed') return 'badge-green';
+  if (s === 'Overdue') return 'badge-red';
+  return 'badge-blue';
+}
+
+// 8.2 Admin Task Management & Minimal Workflow View
 async function renderAdminTasksView(mount) {
-  mount.innerHTML = '<div style="text-align:center; padding:40px; color:#64748b;">Loading Admin Task Management & Workflow Governance...</div>';
+  mount.innerHTML = '<div style="text-align:center; padding:40px; color:#64748b;">Loading Employee Management...</div>';
   try {
     const tasksRes = await api('/api/admin/tasks');
-    const tasks = tasksRes.tasks || [];
+    const rawTasks = tasksRes.tasks || [];
 
-    const filterRole = state.taskFilterRole || 'ALL';
+    // Map each task to the 3 canonical statuses: In Progress, Completed, Overdue
+    const tasks = rawTasks.map(t => {
+      const simplifiedStatus = mapTaskStatus(t.status, t.deadline);
+      return {
+        ...t,
+        display_status: simplifiedStatus,
+        formatted_assigned_date: formatDisplayDate(t.start_date || t.created_at),
+        formatted_deadline: formatDisplayDate(t.deadline)
+      };
+    });
+
     const filterStatus = state.taskFilterStatus || 'ALL';
-    const filterPriority = state.taskFilterPriority || 'ALL';
-    const search = (state.taskSearch || '').toLowerCase();
+    const search = (state.taskSearch || '').trim().toLowerCase();
 
+    // Calculate Middle Section: Overall Task Summary Counts
+    const overallTaskCount = tasks.length;
+    const inProgressCount = tasks.filter(t => t.display_status === 'In Progress').length;
+    const completedCount = tasks.filter(t => t.display_status === 'Completed').length;
+    const overdueCount = tasks.filter(t => t.display_status === 'Overdue').length;
+
+    // Filter tasks based on Search and Status Filter
     const filtered = tasks.filter(t => {
-      if (filterRole !== 'ALL' && t.hierarchy_role !== filterRole) return false;
-      if (filterStatus !== 'ALL' && t.status !== filterStatus) return false;
-      if (filterPriority !== 'ALL' && t.priority !== filterPriority) return false;
+      if (filterStatus !== 'ALL' && t.display_status !== filterStatus) return false;
       if (search) {
-        const text = `${t.task_code} ${t.title} ${t.assigned_to_name} ${t.project_ref || ''}`.toLowerCase();
+        const text = `${t.title} ${t.assigned_to_name} ${t.formatted_assigned_date} ${t.display_status}`.toLowerCase();
         if (!text.includes(search)) return false;
       }
       return true;
     });
 
-    const pendingReviewCount = tasks.filter(t => t.status === 'Submitted for Review').length;
-    const revisionCount = tasks.filter(t => t.status === 'Revision Required').length;
-    const inProgressCount = tasks.filter(t => t.status === 'In Progress' || t.status === 'Assigned').length;
-    const approvedCount = tasks.filter(t => t.status === 'Approved' || t.status === 'Completed').length;
-
     mount.innerHTML = `
-      <div class="page-header-row">
+      <!-- TOP: Heading Section -->
+      <div class="page-header-row" style="margin-bottom:12px;">
         <div>
-          <h1 class="page-header-title">Admin Task Assignment & Workflow Governance</h1>
-          <p class="page-header-desc">Hierarchy-based assignment, individual user delegation, project reviews, rejection with mandatory corrections, and 80G workflows.</p>
+          <h1 class="page-header-title">Employee Management</h1>
+          <p class="page-header-desc">Manage, track, and review hierarchy-assigned tasks.</p>
         </div>
         <div class="page-actions" style="display:flex; gap:10px;">
-          <button class="btn btn-secondary" onclick="void openCreate80GWorkflowModal()">
-            <span class="material-icons-round" style="font-size:18px; vertical-align:middle; margin-right:4px;">receipt_long</span> 80G Certificate Task
-          </button>
           <button class="btn btn-primary" onclick="void openCreateTaskModal()">
             <span class="material-icons-round" style="font-size:18px; vertical-align:middle; margin-right:4px;">add_task</span> Create & Assign Task
           </button>
         </div>
       </div>
 
-      <!-- Quick Operational Metrics Grid -->
-      <div class="stats-grid">
-        <div class="stat-card hero-card">
-          <div class="stat-title">Pending Review</div>
-          <div class="stat-value">${pendingReviewCount}</div>
-          <div class="stat-footer-badge" style="background:#e0f2fe; color:#0369a1;">Awaiting Admin Sign-off</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-title">Active / In Progress</div>
-          <div class="stat-value">${inProgressCount}</div>
-          <div class="stat-footer-badge" style="background:#fef3c7; color:#92400e;">Assigned to Recipients</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-title">Revision Required</div>
-          <div class="stat-value">${revisionCount}</div>
-          <div class="stat-footer-badge" style="background:#fee2e2; color:#991b1b;">Rejection Corrections</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-title">Approved / Completed</div>
-          <div class="stat-value">${approvedCount}</div>
-          <div class="stat-footer-badge" style="background:#dcfce7; color:#166534;">Quality Validated</div>
-        </div>
-      </div>
-
-      <!-- Filter Controls Bar -->
-      <div class="card" style="margin-bottom:20px;">
-        <div class="card-body" style="padding:16px 20px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between;">
-          <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; flex:1;">
-            <div style="position:relative; width:260px;">
-              <span class="material-icons-round" style="position:absolute; left:10px; top:8px; font-size:18px; color:#64748b;">search</span>
-              <input type="text" class="form-control" style="padding-left:34px; height:36px; border-radius:20px; font-size:12.5px;" placeholder="Search task, user, code..." value="${state.taskSearch || ''}" oninput="state.taskSearch=this.value; void renderAdminTasksView(document.getElementById('portal-content-mount'));">
-            </div>
-
-            <select class="form-control" style="width:160px; height:36px; border-radius:10px; font-size:12.5px;" onchange="state.taskFilterRole=this.value; void renderAdminTasksView(document.getElementById('portal-content-mount'));">
-              <option value="ALL" ${filterRole === 'ALL' ? 'selected' : ''}>All Roles</option>
-              <option value="Manager" ${filterRole === 'Manager' ? 'selected' : ''}>Manager</option>
-              <option value="Team Leader" ${filterRole === 'Team Leader' ? 'selected' : ''}>Team Leader</option>
-              <option value="Staff" ${filterRole === 'Staff' ? 'selected' : ''}>Staff / Trainer</option>
-              <option value="Student" ${filterRole === 'Student' ? 'selected' : ''}>Student</option>
-            </select>
-
-            <select class="form-control" style="width:170px; height:36px; border-radius:10px; font-size:12.5px;" onchange="state.taskFilterStatus=this.value; void renderAdminTasksView(document.getElementById('portal-content-mount'));">
-              <option value="ALL" ${filterStatus === 'ALL' ? 'selected' : ''}>All Statuses</option>
-              <option value="Submitted for Review" ${filterStatus === 'Submitted for Review' ? 'selected' : ''}>Submitted for Review</option>
-              <option value="In Progress" ${filterStatus === 'In Progress' ? 'selected' : ''}>In Progress</option>
-              <option value="Revision Required" ${filterStatus === 'Revision Required' ? 'selected' : ''}>Revision Required</option>
-              <option value="Reassigned" ${filterStatus === 'Reassigned' ? 'selected' : ''}>Reassigned</option>
-              <option value="Approved" ${filterStatus === 'Approved' ? 'selected' : ''}>Approved</option>
-            </select>
-
-            <select class="form-control" style="width:130px; height:36px; border-radius:10px; font-size:12.5px;" onchange="state.taskFilterPriority=this.value; void renderAdminTasksView(document.getElementById('portal-content-mount'));">
-              <option value="ALL" ${filterPriority === 'ALL' ? 'selected' : ''}>All Priorities</option>
-              <option value="Urgent" ${filterPriority === 'Urgent' ? 'selected' : ''}>Urgent</option>
-              <option value="High" ${filterPriority === 'High' ? 'selected' : ''}>High</option>
-              <option value="Medium" ${filterPriority === 'Medium' ? 'selected' : ''}>Medium</option>
-              <option value="Low" ${filterPriority === 'Low' ? 'selected' : ''}>Low</option>
-            </select>
-          </div>
-
-          <div style="font-size:12px; color:#64748b;">Showing <strong>${filtered.length}</strong> of ${tasks.length} Tasks</div>
+      <!-- TOP: Modern Rounded Search Bar directly under heading -->
+      <div style="margin: 12px 0 20px 0;">
+        <div style="position:relative; width:100%; max-width:540px;">
+          <span class="material-icons-round" style="position:absolute; left:14px; top:50%; transform:translateY(-50%); font-size:22px; color:#64748b; pointer-events:none;">search</span>
+          <input 
+            type="text" 
+            id="admin-task-search-input"
+            class="form-control" 
+            style="padding-left:44px; padding-right:${state.taskSearch ? '40px' : '16px'}; height:44px; border-radius:24px; font-size:14px; border:1px solid #cbd5e1; box-shadow:0 1px 3px rgba(0,0,0,0.05); width:100%;" 
+            placeholder="Search assigned tasks..." 
+            value="${state.taskSearch || ''}" 
+            oninput="state.taskSearch=this.value; void renderAdminTasksView(document.getElementById('portal-content-mount'));"
+          >
+          ${state.taskSearch ? `
+            <button 
+              type="button" 
+              onclick="state.taskSearch=''; void renderAdminTasksView(document.getElementById('portal-content-mount'));" 
+              style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; color:#94a3b8; cursor:pointer; font-size:18px; padding:0; display:flex; align-items:center;"
+              title="Clear search"
+            >
+              <span class="material-icons-round" style="font-size:20px;">close</span>
+            </button>
+          ` : ''}
         </div>
       </div>
 
-      <!-- Tasks Master Table -->
+      <!-- MIDDLE: Overall Task Summary Section (Overall Task, In Progress, Completed, Overdue) -->
+      <div class="stats-grid" style="margin-bottom:20px;">
+        <div class="stat-card hero-card" style="cursor:pointer;" onclick="state.taskFilterStatus='ALL'; void renderAdminTasksView(document.getElementById('portal-content-mount'));">
+          <div class="stat-title">Overall Task</div>
+          <div class="stat-value">${overallTaskCount}</div>
+          <div class="stat-footer-badge" style="background:#e0f2fe; color:#0369a1;">All Assigned Records</div>
+        </div>
+        <div class="stat-card" style="cursor:pointer;" onclick="state.taskFilterStatus='In Progress'; void renderAdminTasksView(document.getElementById('portal-content-mount'));">
+          <div class="stat-title">In Progress</div>
+          <div class="stat-value" style="color:#0284c7;">${inProgressCount}</div>
+          <div class="stat-footer-badge" style="background:#e0f2fe; color:#0284c7;">Active & Under Review</div>
+        </div>
+        <div class="stat-card" style="cursor:pointer;" onclick="state.taskFilterStatus='Completed'; void renderAdminTasksView(document.getElementById('portal-content-mount'));">
+          <div class="stat-title">Completed</div>
+          <div class="stat-value" style="color:#16a34a;">${completedCount}</div>
+          <div class="stat-footer-badge" style="background:#dcfce7; color:#166534;">Finalized Tasks</div>
+        </div>
+        <div class="stat-card" style="cursor:pointer;" onclick="state.taskFilterStatus='Overdue'; void renderAdminTasksView(document.getElementById('portal-content-mount'));">
+          <div class="stat-title">Overdue</div>
+          <div class="stat-value" style="color:#dc2626;">${overdueCount}</div>
+          <div class="stat-footer-badge" style="background:#fee2e2; color:#991b1b;">Past Deadline / Revisions</div>
+        </div>
+      </div>
+
+      <!-- Status Filter Tabs -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+        <div style="display:flex; gap:8px;">
+          <button class="btn ${filterStatus === 'ALL' ? 'btn-primary' : 'btn-secondary'}" style="border-radius:20px; padding:5px 14px; font-size:12.5px;" onclick="state.taskFilterStatus='ALL'; void renderAdminTasksView(document.getElementById('portal-content-mount'));">
+            All (${tasks.length})
+          </button>
+          <button class="btn ${filterStatus === 'In Progress' ? 'btn-primary' : 'btn-secondary'}" style="border-radius:20px; padding:5px 14px; font-size:12.5px;" onclick="state.taskFilterStatus='In Progress'; void renderAdminTasksView(document.getElementById('portal-content-mount'));">
+            In Progress (${inProgressCount})
+          </button>
+          <button class="btn ${filterStatus === 'Completed' ? 'btn-primary' : 'btn-secondary'}" style="border-radius:20px; padding:5px 14px; font-size:12.5px;" onclick="state.taskFilterStatus='Completed'; void renderAdminTasksView(document.getElementById('portal-content-mount'));">
+            Completed (${completedCount})
+          </button>
+          <button class="btn ${filterStatus === 'Overdue' ? 'btn-primary' : 'btn-secondary'}" style="border-radius:20px; padding:5px 14px; font-size:12.5px;" onclick="state.taskFilterStatus='Overdue'; void renderAdminTasksView(document.getElementById('portal-content-mount'));">
+            Overdue (${overdueCount})
+          </button>
+        </div>
+        <div style="font-size:12px; color:#64748b;">
+          Showing <strong>${filtered.length}</strong> of ${tasks.length} tasks
+        </div>
+      </div>
+
+      <!-- BOTTOM: 6-Column Task Table -->
       <div class="card">
         <div class="table-responsive">
-          <table class="data-table" style="min-width:1150px; width:100%; border-collapse:collapse;">
+          <table class="data-table" style="width:100%; border-collapse:collapse;">
             <thead>
               <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0;">
-                <th style="width:145px; min-width:145px; padding:16px 20px; white-space:nowrap;">Task Code</th>
-                <th style="min-width:280px; padding:16px 20px;">Task Title & Scope</th>
-                <th style="width:180px; min-width:180px; padding:16px 20px;">Assigned Recipient</th>
-                <th style="width:200px; min-width:200px; padding:16px 20px;">Project / Reference</th>
-                <th style="width:140px; min-width:140px; padding:16px 20px;">Deadline & Priority</th>
-                <th style="width:130px; min-width:130px; padding:16px 20px;">Status</th>
-                <th style="width:160px; min-width:160px; padding:16px 20px;">Submission Details</th>
-                <th style="width:150px; min-width:150px; padding:16px 20px;">Admin Governance</th>
+                <th style="width:70px; padding:14px 18px; text-align:center;">S.No</th>
+                <th style="min-width:280px; padding:14px 18px;">Task Assigned</th>
+                <th style="width:170px; padding:14px 18px;">Assigned Date</th>
+                <th style="width:170px; padding:14px 18px;">Deadline</th>
+                <th style="width:140px; padding:14px 18px; text-align:center;">Status</th>
+                <th style="width:120px; padding:14px 18px; text-align:center;">Action</th>
               </tr>
             </thead>
             <tbody>
-              ${filtered.length === 0 ? '<tr><td colspan="8" style="text-align:center; padding:36px; color:#64748b;">No tasks match the active filters.</td></tr>' :
-              filtered.map(t => `
-                <tr style="border-bottom:1px solid #f1f5f9; ${t.status === 'Submitted for Review' ? 'background:#f0fdf4;' : ''}">
-                  <td style="padding:16px 20px; vertical-align:middle;">
-                    <div style="font-weight:800; color:#154d34; font-size:12px; background:#eaf5ee; border:1px solid #bbf7d0; padding:6px 12px; border-radius:8px; display:inline-block; font-family:monospace; letter-spacing:0.6px; white-space:nowrap;">
-                      ${t.task_code}
+              ${filtered.length === 0 ? `
+                <tr>
+                  <td colspan="6" style="text-align:center; padding:48px 20px; color:#64748b;">
+                    <span class="material-icons-round" style="font-size:36px; color:#cbd5e1; display:block; margin-bottom:8px;">search_off</span>
+                    No tasks found matching your criteria.
+                  </td>
+                </tr>
+              ` :
+              filtered.map((t, idx) => `
+                <tr style="border-bottom:1px solid #f1f5f9; transition:background 0.15s ease;">
+                  <td style="padding:14px 18px; text-align:center; font-weight:700; color:#64748b;">
+                    ${idx + 1}
+                  </td>
+                  <td style="padding:14px 18px; vertical-align:middle;">
+                    <div 
+                      onclick="void openViewTaskHistoryModal(${t.id})" 
+                      style="font-weight:700; color:#0f172a; font-size:14px; cursor:pointer; text-decoration:none;" 
+                      onmouseover="this.style.color='#154d34'; this.style.textDecoration='underline';" 
+                      onmouseout="this.style.color='#0f172a'; this.style.textDecoration='none';"
+                      title="Click to view task details & history"
+                    >
+                      ${t.title}
+                    </div>
+                    <div style="font-size:12px; color:#64748b; margin-top:3px;">
+                      Assigned to: <strong>${t.assigned_to_name}</strong> (${t.hierarchy_role})
                     </div>
                   </td>
-                  <td style="padding:16px 20px; vertical-align:middle;">
-                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                      <span style="font-weight:800; color:#0f172a; font-size:14px; line-height:1.45;">${t.title}</span>
-                      ${t.task_type === '80G Certificate Processing' ? '<span class="badge" style="background:#b45309; color:#fff; font-size:9.5px; padding:2px 8px; flex-shrink:0;">80G WORKFLOW</span>' : ''}
-                    </div>
-                    <div style="font-size:11.5px; color:#64748b; margin-top:5px; display:flex; align-items:center; gap:6px;">
-                      <span class="material-icons-round" style="font-size:14px; color:#94a3b8;">category</span>
-                      <span>Type: <strong>${t.task_type}</strong></span>
-                    </div>
+                  <td style="padding:14px 18px; vertical-align:middle; font-size:13px; color:#334155;">
+                    ${t.formatted_assigned_date}
                   </td>
-                  <td style="padding:16px 20px; vertical-align:middle;">
-                    <div style="font-weight:700; color:#0f172a; font-size:13.5px;">${t.assigned_to_name}</div>
-                    <span class="badge" style="background:${getRoleBg(t.hierarchy_role)}; color:${getRoleColor(t.hierarchy_role)}; font-size:10px; margin-top:4px; padding:2px 8px;">
-                      ${t.hierarchy_role} (${t.assigned_to_role})
+                  <td style="padding:14px 18px; vertical-align:middle; font-size:13px; color:#334155;">
+                    ${t.formatted_deadline}
+                  </td>
+                  <td style="padding:14px 18px; vertical-align:middle; text-align:center;">
+                    <span class="badge ${getTaskStatusBadgeClass(t.display_status)}" style="padding:4px 12px; font-size:11.5px; font-weight:700;">
+                      ${t.display_status}
                     </span>
                   </td>
-                  <td style="padding:16px 20px; vertical-align:middle; font-size:12.5px; color:#334155;">
-                    <div style="line-height:1.4;">${t.project_ref || 'General Operations'}</div>
-                  </td>
-                  <td style="padding:16px 20px; vertical-align:middle;">
-                    <div style="font-weight:700; color:${new Date(t.deadline) < new Date() && t.status !== 'Approved' ? '#dc2626' : '#0f172a'}; font-size:12.5px; white-space:nowrap;">
-                      ${t.deadline}
-                    </div>
-                    <span class="badge ${getPriorityBadgeClass(t.priority)}" style="font-size:10px; margin-top:4px; padding:2px 8px;">${t.priority}</span>
-                  </td>
-                  <td style="padding:16px 20px; vertical-align:middle;">
-                    <span class="badge ${getTaskStatusBadgeClass(t.status)}" style="padding:4px 10px; white-space:nowrap;">
-                      ${t.status}
-                    </span>
-                    ${t.revision_count > 0 ? `<div style="font-size:10px; color:#dc2626; margin-top:4px; font-weight:700;">Revision #${t.revision_count}</div>` : ''}
-                  </td>
-                  <td style="padding:16px 20px; vertical-align:middle;">
-                    ${t.submission_date ? `
-                      <div style="font-size:11.5px; color:#15803d; font-weight:700; display:flex; align-items:center; gap:4px;">
-                        <span class="material-icons-round" style="font-size:14px;">attach_file</span>
-                        <span>${t.submission_file_name || 'Deliverable'}</span>
-                      </div>
-                      <div style="font-size:10.5px; color:#64748b; margin-top:2px;">${t.submission_date.substring(0, 16)}</div>
-                    ` : '<span style="font-size:11.5px; color:#94a3b8; font-style:italic;">Pending submission</span>'}
-                  </td>
-                  <td style="padding:16px 20px; vertical-align:middle;">
-                    <div style="display:flex; flex-direction:column; gap:4px;">
-                      <div style="display:flex; gap:4px;">
-                        ${t.status === 'Submitted for Review' ? `
-                          <button class="btn btn-primary btn-sm" onclick="void openReviewTaskModal(${t.id})" style="padding:4px 8px; font-size:11px; background:#16a34a;">
-                            <span class="material-icons-round" style="font-size:13px; vertical-align:middle;">rate_review</span> Review
-                          </button>
-                        ` : ''}
-                        <button class="btn btn-secondary btn-sm" onclick="void openViewTaskHistoryModal(${t.id})" style="padding:4px 8px; font-size:11px;" title="Audit History">
-                          <span class="material-icons-round" style="font-size:13px; vertical-align:middle;">history</span> History
-                        </button>
-                      </div>
-                      <div style="display:flex; gap:4px;">
-                        <button class="btn btn-secondary btn-sm" onclick="void openReassignTaskModal(${t.id})" style="padding:4px 8px; font-size:11px; color:#7c3aed;" title="Move / Transfer Task">
-                          <span class="material-icons-round" style="font-size:13px; vertical-align:middle;">swap_horiz</span> Reassign
-                        </button>
-                        <button class="btn btn-secondary btn-sm" onclick="void openEditTaskModal(${t.id})" style="padding:4px 8px; font-size:11px;" title="Edit Task Parameters">
-                          <span class="material-icons-round" style="font-size:13px; vertical-align:middle;">edit</span> Edit
-                        </button>
-                      </div>
-                    </div>
+                  <td style="padding:14px 18px; vertical-align:middle; text-align:center;">
+                    ${t.display_status === 'Overdue' ? `
+                      <button class="btn btn-sm" onclick="void openViewTaskHistoryModal(${t.id})" style="padding:5px 14px; font-size:12px; background:#dc2626; color:#ffffff; border:1px solid #dc2626; border-radius:6px; font-weight:600; display:inline-flex; align-items:center; gap:4px; box-shadow:0 1px 3px rgba(220,38,38,0.25);" title="Overdue task: Click to view, reassign, or switch">
+                        <span class="material-icons-round" style="font-size:14px;">visibility</span> View
+                      </button>
+                    ` : `
+                      <button class="btn btn-secondary btn-sm" onclick="void openViewTaskHistoryModal(${t.id})" style="padding:5px 12px; font-size:12px;">
+                        <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">visibility</span> View
+                      </button>
+                    `}
                   </td>
                 </tr>
               `).join('')}
@@ -5277,7 +5606,13 @@ async function renderAdminTasksView(mount) {
       </div>
     `;
   } catch (err) {
-    mount.innerHTML = `<div style="padding:40px; text-align:center; color:#dc2626;">Failed to load task management: ${err.message}</div>`;
+    mount.innerHTML = `
+      <div style="padding:40px; text-align:center; color:#dc2626;">
+        <div style="font-weight:700; margin-bottom:8px;">Failed to load task management</div>
+        <div style="font-size:13px; color:#64748b; margin-bottom:12px;">${err.message}</div>
+        <button class="btn btn-primary" onclick="void renderAdminTasksView(document.getElementById('portal-content-mount'))">Retry</button>
+      </div>
+    `;
   }
 }
 
@@ -5438,11 +5773,75 @@ async function renderPersonalTasksView(mount) {
 // 8.4 TASK MODALS & DIALOG WORKFLOWS (Admin Task Create, Review, Reassign)
 // =========================================================================
 
+function filterUsersByRole(role) {
+  const userSelect = document.getElementById('ct-user-id');
+  if (!userSelect) return;
+  Array.from(userSelect.options).forEach(opt => {
+    const uRole = opt.dataset.role;
+    opt.style.display = (role === 'ALL' || uRole === role) ? 'block' : 'none';
+  });
+}
+
+function getCreateTaskFormData() {
+  return {
+    title: document.getElementById('ct-title').value,
+    assigned_to_user_id: document.getElementById('ct-user-id').value,
+    task_type: document.getElementById('ct-type').value,
+    priority: document.getElementById('ct-priority').value,
+    start_date: document.getElementById('ct-start-date').value,
+    deadline: document.getElementById('ct-deadline').value,
+    project_ref: document.getElementById('ct-project-ref').value,
+    description: document.getElementById('ct-desc').value,
+    instructions: document.getElementById('ct-instructions').value
+  };
+}
+
+function renderCreateTaskUserOptions(users, prefillUserId) {
+  return users.map(u => {
+    const isSelected = prefillUserId === u.id;
+    const roleDisplay = u.hierarchy_role || u.role;
+    return `
+      <option value="${u.id}" data-role="${u.hierarchy_role}" ${isSelected ? 'selected' : ''}>
+        ${u.full_name} (${roleDisplay} - ID: ${u.user_id})
+      </option>
+    `;
+  }).join('');
+}
+
+function renderRoleFilterOptions(prefillRole) {
+  const roles = [
+    { value: 'Manager', label: 'Manager' },
+    { value: 'Team Leader', label: 'Team Leader' },
+    { value: 'Staff', label: 'Staff / Faculty' }
+  ];
+  return roles.map(r => `
+    <option value="${r.value}" ${prefillRole === r.value ? 'selected' : ''}>${r.label}</option>
+  `).join('');
+}
+
+async function handleCreateTaskSubmit(e) {
+  e.preventDefault();
+  try {
+    const payload = getCreateTaskFormData();
+    const res = await api('/api/admin/tasks', { method: 'POST', body: JSON.stringify(payload) });
+    closeModal();
+    showToast(res.message || 'Task assigned successfully.');
+    if (state.currentView === 'tasks') {
+      void renderAdminTasksView(document.getElementById('portal-content-mount'));
+    } else if (state.currentView === 'hierarchy') {
+      void renderAdminHierarchyView(document.getElementById('portal-content-mount'));
+    }
+  } catch (err) {
+    alert('Error assigning task: ' + err.message);
+  }
+}
+
 // 1. Admin Create Task Modal
 window.openCreateTaskModal = async function (prefillUserId = null, prefillUserName = null, prefillRole = null) {
   const usersRes = await api('/api/admin/users-hierarchy');
-  // Strict Filter: Donors must never be assigned internal tasks
-  const users = (usersRes.users || []).filter(u => u.hierarchy_role !== 'Donor' && u.portal_type !== 'DONOR');
+  // Strict Filter: Only Managers, Team Leaders, and Staff can receive tasks (Admin, Donors, Students excluded)
+  const allowedRoles = ['Manager', 'Team Leader', 'Staff'];
+  const users = (usersRes.users || []).filter(u => allowedRoles.includes(u.hierarchy_role));
 
   showModal('Admin Task Assignment & Delegation', `
     <form id="admin-create-task-form">
@@ -5456,21 +5855,14 @@ window.openCreateTaskModal = async function (prefillUserId = null, prefillUserNa
           <label class="form-label">Hierarchy Role Filter *</label>
           <select id="ct-role" class="form-control" onchange="filterUsersByRole(this.value)">
             <option value="ALL">All Roles</option>
-            <option value="Manager" ${prefillRole === 'Manager' ? 'selected' : ''}>Manager</option>
-            <option value="Team Leader" ${prefillRole === 'Team Leader' ? 'selected' : ''}>Team Leader</option>
-            <option value="Staff" ${prefillRole === 'Staff' ? 'selected' : ''}>Staff / Faculty</option>
-            <option value="Student" ${prefillRole === 'Student' ? 'selected' : ''}>Student</option>
+            ${renderRoleFilterOptions(prefillRole)}
           </select>
         </div>
 
         <div class="form-group">
           <label class="form-label">Specific Recipient User *</label>
           <select id="ct-user-id" class="form-control" required>
-            ${users.map(u => `
-              <option value="${u.id}" data-role="${u.hierarchy_role}" ${prefillUserId && prefillUserId === u.id ? 'selected' : ''}>
-                ${u.full_name} (${u.hierarchy_role || u.role} - ID: ${u.user_id})
-              </option>
-            `).join('')}
+            ${renderCreateTaskUserOptions(users, prefillUserId)}
           </select>
         </div>
 
@@ -5479,7 +5871,6 @@ window.openCreateTaskModal = async function (prefillUserId = null, prefillUserNa
           <select id="ct-type" class="form-control" required>
             <option value="Project Review">Project Review</option>
             <option value="Academic Assessment">Academic Assessment</option>
-            <option value="80G Certificate Processing">80G Certificate Processing</option>
             <option value="Verification Audit">Verification Audit</option>
             <option value="General Task">General Task</option>
           </select>
@@ -5528,47 +5919,68 @@ window.openCreateTaskModal = async function (prefillUserId = null, prefillUserNa
     </form>
   `);
 
-  window.filterUsersByRole = function (role) {
-    const userSelect = document.getElementById('ct-user-id');
-    if (!userSelect) return;
-    Array.from(userSelect.options).forEach(opt => {
-      const uRole = opt.dataset.role;
-      if (role === 'ALL' || uRole === role) {
-        opt.style.display = 'block';
-      } else {
-        opt.style.display = 'none';
-      }
-    });
-  };
-
-  document.getElementById('admin-create-task-form').onsubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const payload = {
-        title: document.getElementById('ct-title').value,
-        assigned_to_user_id: document.getElementById('ct-user-id').value,
-        task_type: document.getElementById('ct-type').value,
-        priority: document.getElementById('ct-priority').value,
-        start_date: document.getElementById('ct-start-date').value,
-        deadline: document.getElementById('ct-deadline').value,
-        project_ref: document.getElementById('ct-project-ref').value,
-        description: document.getElementById('ct-desc').value,
-        instructions: document.getElementById('ct-instructions').value
-      };
-
-      const res = await api('/api/admin/tasks', { method: 'POST', body: JSON.stringify(payload) });
-      closeModal();
-      showToast(res.message || 'Task assigned successfully.');
-      if (state.currentView === 'tasks') {
-        void renderAdminTasksView(document.getElementById('portal-content-mount'));
-      } else if (state.currentView === 'hierarchy') {
-        void renderAdminHierarchyView(document.getElementById('portal-content-mount'));
-      }
-    } catch (err) {
-      alert('Error assigning task: ' + err.message);
-    }
-  };
+  document.getElementById('admin-create-task-form').onsubmit = handleCreateTaskSubmit;
 };
+
+function updateReviewDecisionUI(decision) {
+  const btnApprove = document.getElementById('btn-choice-approve');
+  const btnReject = document.getElementById('btn-choice-reject');
+  const appSection = document.getElementById('approve-section');
+  const rejSection = document.getElementById('reject-section');
+  const submitBtn = document.getElementById('submit-review-btn');
+
+  submitBtn.disabled = false;
+  if (decision === 'APPROVE') {
+    btnApprove.style.background = '#15803d';
+    btnApprove.style.color = '#fff';
+    btnReject.style.background = '#f1f5f9';
+    btnReject.style.color = '#64748b';
+    appSection.style.display = 'block';
+    rejSection.style.display = 'none';
+    submitBtn.innerText = 'Approve & Finalize Task';
+  } else {
+    btnReject.style.background = '#dc2626';
+    btnReject.style.color = '#fff';
+    btnApprove.style.background = '#f1f5f9';
+    btnApprove.style.color = '#64748b';
+    rejSection.style.display = 'block';
+    appSection.style.display = 'none';
+    submitBtn.innerText = 'Reject & Issue Revision Task';
+  }
+}
+
+function getReviewSubmissionPayload(decision) {
+  const payload = { action: decision };
+  if (decision === 'APPROVE') {
+    payload.comments = document.getElementById('app-comments').value;
+    return payload;
+  }
+  const reason = document.getElementById('rej-reason').value.trim();
+  const corrections = document.getElementById('rej-corrections').value.trim();
+  if (!reason || !corrections) {
+    alert('Both Rejection Reason and Required Corrections are strictly mandatory.');
+    return null;
+  }
+  payload.rejection_reason = reason;
+  payload.required_corrections = corrections;
+  payload.new_deadline = document.getElementById('rej-new-deadline').value;
+  payload.reassign_to_user_id = document.getElementById('rej-reassign-user').value;
+  return payload;
+}
+
+async function handleReviewDecisionSubmit(taskId, decision) {
+  if (!decision) return;
+  try {
+    const payload = getReviewSubmissionPayload(decision);
+    if (!payload) return;
+    const res = await api('/api/admin/tasks/' + taskId + '/review', { method: 'POST', body: JSON.stringify(payload) });
+    closeModal();
+    showToast(res.message);
+    void renderAdminTasksView(document.getElementById('portal-content-mount'));
+  } catch (err) {
+    alert('Error submitting review: ' + err.message);
+  }
+}
 
 // 2. Admin Review Modal: Approve or Reject
 window.openReviewTaskModal = async function (taskId) {
@@ -5647,87 +6059,33 @@ window.openReviewTaskModal = async function (taskId) {
   let currentDecision = null;
   window.selectReviewDecision = function (decision) {
     currentDecision = decision;
-    const btnApprove = document.getElementById('btn-choice-approve');
-    const btnReject = document.getElementById('btn-choice-reject');
-    const appSection = document.getElementById('approve-section');
-    const rejSection = document.getElementById('reject-section');
-    const submitBtn = document.getElementById('submit-review-btn');
-
-    submitBtn.disabled = false;
-    if (decision === 'APPROVE') {
-      btnApprove.style.background = '#15803d';
-      btnApprove.style.color = '#fff';
-      btnReject.style.background = '#f1f5f9';
-      btnReject.style.color = '#64748b';
-      appSection.style.display = 'block';
-      rejSection.style.display = 'none';
-      submitBtn.innerText = 'Approve & Finalize Task';
-    } else {
-      btnReject.style.background = '#dc2626';
-      btnReject.style.color = '#fff';
-      btnApprove.style.background = '#f1f5f9';
-      btnApprove.style.color = '#64748b';
-      rejSection.style.display = 'block';
-      appSection.style.display = 'none';
-      submitBtn.innerText = 'Reject & Issue Revision Task';
-    }
+    updateReviewDecisionUI(decision);
   };
 
-  window.submitTaskReviewDecision = async function (taskId) {
-    if (!currentDecision) return;
-    try {
-      const payload = { action: currentDecision };
-      if (currentDecision === 'APPROVE') {
-        payload.comments = document.getElementById('app-comments').value;
-      } else {
-        const reason = document.getElementById('rej-reason').value.trim();
-        const corrections = document.getElementById('rej-corrections').value.trim();
-        if (!reason || !corrections) {
-          alert('Both Rejection Reason and Required Corrections are strictly mandatory.');
-          return;
-        }
-        payload.rejection_reason = reason;
-        payload.required_corrections = corrections;
-        payload.new_deadline = document.getElementById('rej-new-deadline').value;
-        payload.reassign_to_user_id = document.getElementById('rej-reassign-user').value;
-      }
-
-      const res = await api('/api/admin/tasks/' + taskId + '/review', { method: 'POST', body: JSON.stringify(payload) });
-      closeModal();
-      showToast(res.message);
-      void renderAdminTasksView(document.getElementById('portal-content-mount'));
-    } catch (err) {
-      alert('Error submitting review: ' + err.message);
-    }
+  window.submitTaskReviewDecision = function (reviewTaskId) {
+    void handleReviewDecisionSubmit(reviewTaskId, currentDecision);
   };
 };
 
-// 3. Admin-Only Task Movement & Reassignment Modal
+// 3. Admin-Only Task Movement (Reassign to Same Member or Switch to Another User)
 window.openReassignTaskModal = async function (taskId) {
   const res = await api('/api/tasks/' + taskId);
   const t = res.task;
-  const usersRes = await api('/api/admin/users-hierarchy');
-  const users = (usersRes.users || []).filter(u => u.hierarchy_role !== 'Donor' && u.portal_type !== 'DONOR');
 
-  showModal('Admin Reassignment: ' + t.task_code, `
+  showModal('Reassign Task to Current Owner: ' + t.task_code, `
     <form id="admin-reassign-form">
       <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px; margin-bottom:18px;">
         <div style="font-weight:800; font-size:15px; color:#0f172a;">${t.title}</div>
         <div style="font-size:12px; color:#64748b; margin-top:4px;">
-          Current Owner: <strong>${t.assigned_to_name}</strong> (${t.hierarchy_role}) • Current Deadline: ${t.deadline}
+          Assigned Member: <strong style="color:#0f172a;">${t.assigned_to_name}</strong> (${t.hierarchy_role}) • Current Deadline: ${t.deadline}
         </div>
       </div>
 
       <div class="form-grid">
         <div class="form-group">
-          <label class="form-label">Transfer to New Hierarchy Role / User *</label>
-          <select id="re-user-id" class="form-control" required>
-            ${users.map(u => `
-              <option value="${u.id}" ${u.id === t.assigned_to_user_id ? 'disabled' : ''}>
-                ${u.full_name} (${u.hierarchy_role} - ID: ${u.user_id}) ${u.id === t.assigned_to_user_id ? ' [CURRENT]' : ''}
-              </option>
-            `).join('')}
-          </select>
+          <label class="form-label">Assigned Member</label>
+          <input type="text" class="form-control" value="${t.assigned_to_name} (${t.hierarchy_role})" disabled style="background:#f1f5f9; cursor:not-allowed;">
+          <small style="color:#64748b; font-size:11px; margin-top:4px; display:block;">Reassign keeps the task with the same member.</small>
         </div>
 
         <div class="form-group">
@@ -5735,7 +6093,7 @@ window.openReassignTaskModal = async function (taskId) {
           <input type="date" id="re-deadline" class="form-control" required value="${t.deadline}">
         </div>
 
-        <div class="form-group">
+        <div class="form-group full-width">
           <label class="form-label">Updated Priority</label>
           <select id="re-priority" class="form-control">
             <option value="Medium" ${t.priority === 'Medium' ? 'selected' : ''}>Medium</option>
@@ -5746,14 +6104,14 @@ window.openReassignTaskModal = async function (taskId) {
         </div>
 
         <div class="form-group full-width">
-          <label class="form-label">Transfer Reason & Instructions for New Owner *</label>
-          <textarea id="re-reason" class="form-control" rows="3" required placeholder="Explain why the task is being moved and what the new recipient is expected to deliver."></textarea>
+          <label class="form-label">Reassign Reason *</label>
+          <textarea id="re-reason" class="form-control" rows="3" required placeholder="Explain why the task is being reassigned with a new deadline to the same member."></textarea>
         </div>
       </div>
 
       <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
         <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-        <button type="submit" class="btn btn-primary">Transfer & Reassign Task</button>
+        <button type="submit" class="btn btn-primary" style="background:#154d34; border-color:#154d34;">Reassign Task</button>
       </div>
     </form>
   `);
@@ -5762,7 +6120,7 @@ window.openReassignTaskModal = async function (taskId) {
     e.preventDefault();
     try {
       const payload = {
-        new_assigned_to_user_id: document.getElementById('re-user-id').value,
+        new_assigned_to_user_id: t.assigned_to_user_id,
         deadline: document.getElementById('re-deadline').value,
         priority: document.getElementById('re-priority').value,
         transfer_reason: document.getElementById('re-reason').value
@@ -5773,6 +6131,86 @@ window.openReassignTaskModal = async function (taskId) {
       void renderAdminTasksView(document.getElementById('portal-content-mount'));
     } catch (err) {
       alert('Error reassigning task: ' + err.message);
+    }
+  };
+};
+
+window.openSwitchTaskModal = async function (taskId) {
+  const res = await api('/api/tasks/' + taskId);
+  const t = res.task;
+  const usersRes = await api('/api/admin/users-hierarchy');
+  const users = (usersRes.users || []).filter(u => u.hierarchy_role !== 'Donor' && u.portal_type !== 'DONOR');
+
+  showModal('Switch Task to Another Person: ' + t.task_code, `
+    <form id="admin-switch-form">
+      <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px; margin-bottom:18px;">
+        <div style="font-weight:800; font-size:15px; color:#0f172a;">${t.title}</div>
+        <div style="font-size:12px; color:#64748b; margin-top:4px;">
+          Current Owner: <strong>${t.assigned_to_name}</strong> (${t.hierarchy_role}) • Current Deadline: ${t.deadline}
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Switch To User & Role *</label>
+          <select id="sw-user-id" class="form-control" required>
+            <option value="">-- Select Person & Role --</option>
+            ${users.map(u => `
+              <option value="${u.id}" ${u.id === t.assigned_to_user_id ? 'disabled' : ''}>
+                ${u.full_name} (${u.hierarchy_role} - ID: ${u.user_id}) ${u.id === t.assigned_to_user_id ? ' [CURRENT OWNER]' : ''}
+              </option>
+            `).join('')}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">New Due Date (Deadline) *</label>
+          <input type="date" id="sw-deadline" class="form-control" required value="${t.deadline}">
+        </div>
+
+        <div class="form-group full-width">
+          <label class="form-label">Updated Priority</label>
+          <select id="sw-priority" class="form-control">
+            <option value="Medium" ${t.priority === 'Medium' ? 'selected' : ''}>Medium</option>
+            <option value="High" ${t.priority === 'High' ? 'selected' : ''}>High</option>
+            <option value="Urgent" ${t.priority === 'Urgent' ? 'selected' : ''}>Urgent</option>
+            <option value="Low" ${t.priority === 'Low' ? 'selected' : ''}>Low</option>
+          </select>
+        </div>
+
+        <div class="form-group full-width">
+          <label class="form-label">Switch Reason *</label>
+          <textarea id="sw-reason" class="form-control" rows="3" required placeholder="State reason for switching this task to another person."></textarea>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="background:#dc2626; border-color:#dc2626;">Switch Task</button>
+      </div>
+    </form>
+  `);
+
+  document.getElementById('admin-switch-form').onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const selectedUserId = document.getElementById('sw-user-id').value;
+      if (!selectedUserId) {
+        alert('Please select a user to switch the task to.');
+        return;
+      }
+      const payload = {
+        new_assigned_to_user_id: selectedUserId,
+        deadline: document.getElementById('sw-deadline').value,
+        priority: document.getElementById('sw-priority').value,
+        transfer_reason: document.getElementById('sw-reason').value
+      };
+      const res = await api('/api/admin/tasks/' + t.id + '/reassign', { method: 'POST', body: JSON.stringify(payload) });
+      closeModal();
+      showToast(res.message);
+      void renderAdminTasksView(document.getElementById('portal-content-mount'));
+    } catch (err) {
+      alert('Error switching task: ' + err.message);
     }
   };
 };
@@ -5897,34 +6335,73 @@ window.openViewTaskHistoryModal = async function (taskId) {
   const t = res.task;
   const history = res.history || [];
 
-  showModal('Task Audit History: ' + t.task_code, `
+  const displayStatus = mapTaskStatus(t.status, t.deadline);
+  const formattedAssigned = formatDisplayDate(t.start_date || t.created_at);
+  const formattedDeadline = formatDisplayDate(t.deadline);
+
+  showModal('Task Details & Audit History', `
     <div>
-      <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px; margin-bottom:16px;">
-        <div style="font-weight:800; font-size:15px; color:#0f172a;">${t.title}</div>
-        <div style="font-size:12px; color:#64748b; margin-top:2px;">
-          Assigned to: <strong>${t.assigned_to_name}</strong> (${t.hierarchy_role}) • Status: <span class="badge ${getTaskStatusBadgeClass(t.status)}">${t.status}</span>
+      <!-- Clean Minimal Header / Summary Details -->
+      <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:18px; margin-bottom:20px;">
+        <div style="font-weight:800; font-size:16px; color:#0f172a; margin-bottom:10px;">${t.title}</div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; font-size:12.5px;">
+          <div><span style="color:#64748b;">Current Assigned User:</span> <strong style="color:#0f172a;">${t.assigned_to_name}</strong> <span class="badge" style="background:${getRoleBg(t.hierarchy_role)}; color:${getRoleColor(t.hierarchy_role)}; font-size:10px; padding:2px 6px;">${t.hierarchy_role}</span></div>
+          <div><span style="color:#64748b;">Current Status:</span> <span class="badge ${getTaskStatusBadgeClass(displayStatus)}" style="padding:3px 10px; font-weight:700;">${displayStatus}</span></div>
+          <div><span style="color:#64748b;">Assigned Date:</span> <strong style="color:#0f172a;">${formattedAssigned}</strong></div>
+          <div><span style="color:#64748b;">Deadline:</span> <strong style="color:#0f172a;">${formattedDeadline}</strong></div>
         </div>
+        ${t.description ? `
+          <div style="margin-top:12px; padding-top:10px; border-top:1px solid #e2e8f0; font-size:12.5px; color:#334155;">
+            <strong style="color:#0f172a;">Description:</strong> ${t.description}
+          </div>
+        ` : ''}
+        ${t.instructions ? `
+          <div style="margin-top:6px; font-size:12.5px; color:#334155;">
+            <strong style="color:#0f172a;">Instructions:</strong> ${t.instructions}
+          </div>
+        ` : ''}
       </div>
 
-      <div style="font-size:12px; font-weight:800; color:#475569; text-transform:uppercase; margin-bottom:10px;">
-        Immutable Audit & Revision Trail (${history.length} Events)
+      <!-- Vertical Audit & Revision Timeline -->
+      <div style="font-size:12px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+        <span class="material-icons-round" style="font-size:16px; color:#154d34;">timeline</span>
+        Task Lifecycle & Audit History (${history.length} Events)
       </div>
 
-      <div style="display:flex; flex-direction:column; gap:10px; max-height:360px; overflow-y:auto;">
-        ${history.length === 0 ? '<div style="font-size:12px; color:#64748b;">No recorded events yet.</div>' :
+      <div style="display:flex; flex-direction:column; gap:12px; max-height:360px; overflow-y:auto; padding-right:6px;">
+        ${history.length === 0 ? '<div style="font-size:12.5px; color:#64748b; padding:12px; text-align:center;">No task history available.</div>' :
         history.map((h) => `
-          <div style="border-left:3px solid #154d34; padding:8px 12px; background:#f8fafc; border-radius:4px; font-size:12px;">
+          <div style="border-left:3px solid #154d34; padding:10px 14px; background:#f8fafc; border-radius:0 8px 8px 0; border:1px solid #e2e8f0; border-left-width:3px;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-weight:800; color:#0f172a;">${h.action}</span>
-              <span style="font-size:11px; color:#64748b;">${h.created_at}</span>
+              <span style="font-weight:800; color:#0f172a; font-size:13px;">${h.action}</span>
+              <span style="font-size:11px; color:#64748b;">${formatDisplayDate(h.created_at)} ${h.created_at ? h.created_at.substring(11, 16) : ''}</span>
             </div>
-            <div style="color:#334155; margin-top:3px;">${h.details}</div>
-            <div style="font-size:10.5px; color:#64748b; margin-top:2px;">Logged by: <strong>${h.performed_by_name}</strong></div>
+            <div style="color:#334155; margin-top:4px; font-size:12px; line-height:1.4;">${h.details}</div>
+            <div style="font-size:11px; color:#64748b; margin-top:4px; display:flex; justify-content:space-between;">
+              <span>Performed By: <strong style="color:#0f172a;">${h.performed_by_name}</strong></span>
+              ${h.previous_value || h.new_value ? `<span style="font-size:10.5px; color:#0284c7;">${h.previous_value ? `Prev: ${h.previous_value} ` : ''}${h.new_value ? `➔ New: ${h.new_value}` : ''}</span>` : ''}
+            </div>
           </div>
         `).join('')}
       </div>
 
-      <div style="display:flex; justify-content:flex-end; margin-top:18px;">
+      <!-- Quick Action Controls for Admin inside modal -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; border-top:1px solid #e2e8f0; padding-top:14px; flex-wrap:wrap; gap:10px;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          ${t.status === 'Submitted for Review' ? `
+            <button class="btn btn-primary btn-sm" onclick="closeModal(); void openReviewTaskModal(${t.id})">
+              <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">rate_review</span> Review Deliverables
+            </button>
+          ` : ''}
+          ${displayStatus === 'Overdue' ? `
+            <button class="btn btn-secondary btn-sm" onclick="closeModal(); void openReassignTaskModal(${t.id})" style="border-color:#154d34; color:#154d34; font-weight:600;">
+              <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">schedule</span> Reassign
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="closeModal(); void openSwitchTaskModal(${t.id})" style="border-color:#dc2626; color:#dc2626; font-weight:600;">
+              <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">swap_horiz</span> Switch
+            </button>
+          ` : ''}
+        </div>
         <button type="button" class="btn btn-secondary" onclick="closeModal()">Close</button>
       </div>
     </div>

@@ -4,7 +4,7 @@
 // =========================================================================
 
 (function () {
-  const STORAGE_KEY = 'MINDS_TRUST_ERP_DB_V3';
+  const STORAGE_KEY = 'MINDS_TRUST_ERP_DB_V4';
 
   function cloneData(data) {
     return structuredClone(data);
@@ -283,15 +283,36 @@
   }
 
   function handleAdminSpecialDates(ctx) {
-    const usersWithDob = (ctx.db.users || []).map(u => ({
-      id: u.id,
-      full_name: u.full_name,
-      portal_type: u.portal_type,
-      role: u.role,
-      dob: u.dob,
-      email: u.email,
-      phone: u.phone
-    }));
+    const usersWithDob = (ctx.db.users || []).filter(u => u.dob && u.portal_type !== 'DONOR' && u.role !== 'Donor' && u.hierarchy_role !== 'Donor');
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+
+    const birthdayList = usersWithDob.map(u => {
+      const dob = new Date(u.dob);
+      const bMonth = isNaN(dob.getTime()) ? 1 : dob.getMonth() + 1;
+      const bDay = isNaN(dob.getTime()) ? 1 : dob.getDate();
+
+      let nextBday = new Date(now.getFullYear(), bMonth - 1, bDay);
+      if (nextBday < now && nextBday.toDateString() !== now.toDateString()) {
+        nextBday = new Date(now.getFullYear() + 1, bMonth - 1, bDay);
+      }
+      const diffTime = nextBday - now;
+      const daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+
+      return {
+        id: u.id,
+        name: u.full_name,
+        category: u.portal_type,
+        role: u.role,
+        dob: u.dob,
+        month: bMonth,
+        day: bDay,
+        days_remaining: daysRemaining,
+        is_current_month: bMonth === currentMonth,
+        contact: u.email
+      };
+    }).sort((a, b) => a.days_remaining - b.days_remaining);
+
     const specialOccasions = (ctx.db.events || []).map(e => ({
       id: e.id,
       title: e.title,
@@ -299,7 +320,8 @@
       target_date: e.start_date,
       venue: e.venue
     }));
-    return { usersWithDob, specialOccasions };
+
+    return { birthdayList, usersWithDob, specialOccasions };
   }
 
   function handleAdminPrograms(ctx) {
@@ -421,7 +443,7 @@
       }
       return { students: list };
     }
-    const { full_name, user_id, email, phone, password, program_id, dob, student_status } = ctx.body;
+    const { full_name, user_id, email, phone, program_id, dob, student_status } = ctx.body;
     const prog = (ctx.db.programs || []).find(p => p.id === Number(program_id)) || (ctx.db.programs || [])[0];
     const newId = (ctx.db.students || []).length + 1;
     const code = `STU-2026-${String(newId).padStart(3, '0')}`;
@@ -641,8 +663,8 @@
     };
 
     const donations = (ctx.db.donations || []).map(don => {
-      const donationDate = new Date(don.donation_date);
-      const diffDays = Math.floor((new Date() - donationDate) / (1000 * 60 * 60 * 24));
+      const donationDate = new Date(don.donation_date).getTime();
+      const diffDays = Math.floor((Date.now() - donationDate) / (1000 * 60 * 60 * 24));
       return {
         ...don,
         can_edit: diffDays <= 20,
@@ -997,7 +1019,6 @@
   }
 
   function handleAdminUsersHierarchy(ctx) {
-    const session = getCurrentUserSession();
     const users = (ctx.db.users || []).map(u => ({
       id: u.id,
       user_id: u.user_id,
@@ -1276,52 +1297,62 @@
     const t = (db.tasks || []).find(item => item.id === taskId);
     if (!t) throw new Error('Task not found.');
 
-    if (!body.new_assigned_to_user_id) throw new Error('New assigned user is required.');
-    const newUser = (db.users || []).find(u => u.id === Number(body.new_assigned_to_user_id));
-    if (!newUser) throw new Error('Target user not found.');
+    const targetUserId = body.new_assigned_to_user_id ? Number(body.new_assigned_to_user_id) : t.assigned_to_user_id;
+    const targetUser = (db.users || []).find(u => u.id === targetUserId);
+    if (!targetUser) throw new Error('Target user not found.');
 
+    const isSwitch = targetUserId !== t.assigned_to_user_id;
     const oldUserId = t.assigned_to_user_id;
     const oldUserName = t.assigned_to_name;
     const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
-    t.assigned_to_user_id = newUser.id;
-    t.assigned_to_name = newUser.full_name;
-    t.assigned_to_role = newUser.hierarchy_role || newUser.role;
-    t.hierarchy_role = newUser.hierarchy_role || t.hierarchy_role;
-    t.status = 'Reassigned';
+    t.assigned_to_user_id = targetUser.id;
+    t.assigned_to_name = targetUser.full_name;
+    t.assigned_to_role = targetUser.hierarchy_role || targetUser.role;
+    t.hierarchy_role = targetUser.hierarchy_role || t.hierarchy_role;
+    t.status = isSwitch ? 'Reassigned' : 'In Progress';
     t.updated_at = now;
 
     if (body.deadline) t.deadline = body.deadline;
     if (body.priority) t.priority = body.priority;
     if (body.instructions) t.instructions = body.instructions;
 
+    const actionTitle = isSwitch ? 'Task Switched' : 'Task Reassigned';
+    const actionDetails = isSwitch
+      ? 'Task switched from ' + oldUserName + ' to ' + targetUser.full_name + ' (' + t.assigned_to_role + '). Reason: ' + (body.transfer_reason || 'Switched by Admin.')
+      : 'Task deadline/priority reassigned to current owner ' + targetUser.full_name + ' with new deadline: ' + t.deadline + '. Reason: ' + (body.transfer_reason || 'Reassigned by Admin.');
+
     db.task_history = db.task_history || [];
     db.task_history.unshift({
       id: db.task_history.length + 1,
       task_id: t.id,
-      action: 'Task Reassigned',
+      action: actionTitle,
       performed_by_id: session.id,
       performed_by_name: session.full_name,
       from_user_id: oldUserId,
-      to_user_id: newUser.id,
-      details: 'Task transferred from ' + oldUserName + ' to ' + newUser.full_name + ' (' + t.assigned_to_role + '). Reason: ' + (body.transfer_reason || 'Reassignment by Admin governance.'),
+      to_user_id: targetUser.id,
+      details: actionDetails,
       created_at: now
     });
 
     db.notifications = db.notifications || [];
     db.notifications.unshift({
       id: db.notifications.length + 1,
-      user_id: newUser.id,
-      title: 'Transferred Task: ' + t.title,
-      message: 'Admin reassigned task ' + t.task_code + ' to you. Deadline: ' + t.deadline,
-      type: 'TASK_REASSIGNED',
+      user_id: targetUser.id,
+      title: isSwitch ? ('Switched Task: ' + t.title) : ('Task Reassigned / Deadline Updated: ' + t.title),
+      message: 'Admin updated task ' + t.task_code + '. Deadline: ' + t.deadline,
+      type: isSwitch ? 'TASK_SWITCHED' : 'TASK_REASSIGNED',
       task_id: t.id,
       is_read: 0,
       created_at: now
     });
 
     MockDB.save(db);
-    return { success: true, message: 'Task ' + t.task_code + ' successfully reassigned to ' + newUser.full_name, task: t };
+    return {
+      success: true,
+      message: isSwitch ? `Task successfully switched to ${targetUser.full_name} (${t.assigned_to_role}).` : `Task successfully reassigned to ${targetUser.full_name} with new deadline ${t.deadline}.`,
+      task: t
+    };
   }
 
   function handleAdminTaskEdit(taskId, body, db) {
