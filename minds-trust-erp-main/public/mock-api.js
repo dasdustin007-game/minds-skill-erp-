@@ -1693,7 +1693,8 @@
     if (founderMatch && method === 'PUT') {
       const cert = (db.certificates || []).find(c => c.id === Number(founderMatch[1]));
       if (cert) {
-        cert.status = body.decision === 'Approved' ? 'Issued' : 'Rejected';
+        cert.approval_status = body.decision;
+        cert.status = body.decision === 'Approved' ? 'Issued' : (body.decision === 'Rejected' ? 'Rejected' : 'Pending');
         cert.rejection_reason = body.rejection_reason || null;
         MockDB.save(db);
       }

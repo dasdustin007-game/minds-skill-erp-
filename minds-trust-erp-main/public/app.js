@@ -407,7 +407,6 @@ function renderPortalShell(container) {
             <div class="topbar-search-box">
               <span class="material-icons-round" style="font-size:18px; color:#64748b;">search</span>
               <input type="text" id="global-search-input" placeholder="Search by name, student, donor, or event..." oninput="handleGlobalSearch(this.value)" onfocus="handleGlobalSearch(this.value)" onkeydown="handleGlobalSearchKeydown(event)" autocomplete="off">
-              <span class="key-badge">⌘ F</span>
             </div>
             <!-- Google-Style Global Search Dropdown Results -->
             <div id="global-search-dropdown" class="google-search-dropdown" style="display:none; position:absolute; top:calc(100% + 8px); left:0; width:520px; max-width:92vw; background:#ffffff; border-radius:18px; box-shadow:0 20px 45px rgba(15,23,42,0.18), 0 4px 12px rgba(15,23,42,0.06); border:1px solid #e2e8f0; z-index:999; max-height:460px; overflow-y:auto;"></div>
@@ -2296,10 +2295,12 @@ async function renderAdminCertificates(mount) {
                   <td><span class="badge ${c.status === 'Issued' ? 'badge-green' : 'badge-gray'}">${c.status}</span></td>
                   <td>
                     <div style="display:flex; gap:6px;">
-                      <button class="btn btn-primary btn-sm" onclick="printOfficialCertificate(${JSON.stringify(c).replaceAll('"', '&quot;')})">🖨️ View PDF</button>
-                      ${c.approval_status !== 'Approved' ? `
-                        <button class="btn btn-secondary btn-sm" onclick="openFounderApprovalModal(${JSON.stringify(c).replaceAll('"', '&quot;')})">⚖️ Decision</button>
-                      ` : ''}
+                      <button class="btn btn-primary btn-sm" onclick="printOfficialCertificate(${JSON.stringify(c).replaceAll('"', '&quot;')})">
+                        <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">visibility</span> View PDF
+                      </button>
+                      <button class="btn btn-secondary btn-sm" onclick="openFounderApprovalModal(${JSON.stringify(c).replaceAll('"', '&quot;')})" title="Verify and update Founder Approval Decision">
+                        <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">edit</span> Edit / Approval
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -2373,10 +2374,12 @@ async function renderAdminCertificates(mount) {
               <td><span class="badge ${r.status === 'Issued' ? 'badge-green' : 'badge-gray'}">${r.status}</span></td>
               <td>
                 <div style="display:flex; gap:6px;">
-                  <button class="btn btn-primary btn-sm" onclick="printOfficialCertificate(${JSON.stringify(r).replaceAll('"', '&quot;')})">🖨️ View PDF</button>
-                  ${r.approval_status !== 'Approved' ? `
-                    <button class="btn btn-secondary btn-sm" onclick="openFounderApprovalModal(${JSON.stringify(r).replaceAll('"', '&quot;')})">⚖️ Decision</button>
-                  ` : ''}
+                  <button class="btn btn-primary btn-sm" onclick="printOfficialCertificate(${JSON.stringify(r).replaceAll('"', '&quot;')})">
+                    <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">visibility</span> View PDF
+                  </button>
+                  <button class="btn btn-secondary btn-sm" onclick="openFounderApprovalModal(${JSON.stringify(r).replaceAll('"', '&quot;')})" title="Verify and update Founder Approval Decision">
+                    <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">edit</span> Edit / Approval
+                  </button>
                 </div>
               </td>
             </tr>
@@ -2388,31 +2391,33 @@ async function renderAdminCertificates(mount) {
 }
 
 window.openFounderApprovalModal = function (c) {
-  showModal(`Founder Approval: ${c.certificate_no}`, `
+  showModal(`Founder Verification & Approval: ${c.certificate_no}`, `
     <div style="font-size:13.5px; line-height:1.6; margin-bottom:18px;">
       <div><strong>Student Name:</strong> ${c.student_name} (${c.student_code})</div>
       <div><strong>Program:</strong> ${c.program_name || c.event_title} (${c.program_code || 'PRG-FSD-01'})</div>
       <div><strong>QR Verification Code:</strong> <code>${c.qr_verification_code || 'QR-MINDS'}</code></div>
+      <div><strong>Current Approval Status:</strong> <span class="badge ${c.approval_status === 'Approved' ? 'badge-green' : (c.approval_status === 'Rejected' ? 'badge-red' : 'badge-yellow')}">${c.approval_status || 'Pending'}</span></div>
       <div><strong>Signatory Authority:</strong> ${c.founder_signature || 'Dr. Ramesh Narayan'}</div>
     </div>
 
     <div style="border-top:1px dashed #cbd5e1; padding-top:16px;">
       <h4 style="font-size:14px; font-weight:800; color:#154d34; margin-bottom:8px;">Founder Approval Decision</h4>
       <div class="form-group" style="margin-bottom:14px;">
-        <label class="form-label">Decision</label>
+        <label class="form-label">Update Founder Decision *</label>
         <select id="fa-decision" class="form-control" onchange="toggleRejectionBox(this.value)">
-          <option value="Approved">Approved (Issue Certificate & Save to Archive)</option>
-          <option value="Rejected">Rejected (Return for Correction)</option>
+          <option value="Approved" ${c.approval_status === 'Approved' ? 'selected' : ''}>Approved (Issue Certificate & Authorize Verification)</option>
+          <option value="Rejected" ${c.approval_status === 'Rejected' ? 'selected' : ''}>Rejected (Return for Correction)</option>
+          <option value="Pending" ${c.approval_status === 'Pending' ? 'selected' : ''}>Pending (Hold for Review)</option>
         </select>
       </div>
-      <div class="form-group" id="fa-reject-box" style="display:none; margin-bottom:14px;">
+      <div class="form-group" id="fa-reject-box" style="display:${c.approval_status === 'Rejected' ? 'block' : 'none'}; margin-bottom:14px;">
         <label class="form-label">Correction Notes / Reason for Rejection</label>
-        <textarea id="fa-reason" class="form-control" placeholder="Specify corrections required in attendance or student details..."></textarea>
+        <textarea id="fa-reason" class="form-control" placeholder="Specify corrections required in attendance or student details...">${c.rejection_reason || ''}</textarea>
       </div>
 
       <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
         <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-        <button type="button" class="btn btn-primary" onclick="submitFounderDecision(${c.id})">Confirm Decision</button>
+        <button type="button" class="btn btn-primary" onclick="submitFounderDecision(${c.id})">Save Approval Decision</button>
       </div>
     </div>
   `);
@@ -2854,10 +2859,28 @@ window.openAddFinanceModal = function () {
           <label class="form-label">Amount (₹ INR) *</label>
           <input type="number" id="af-amt" class="form-control" required min="1" placeholder="25000">
         </div>
+
+        <!-- Transaction Details Section -->
         <div class="form-group">
-          <label class="form-label">Reference / Cheque / UTR # *</label>
-          <input type="text" id="af-ref" class="form-control" required placeholder="NEFT-HDFC-9912">
+          <label class="form-label">Transaction Details (Type) *</label>
+          <select id="af-tx-type" class="form-control" required onchange="handleTxTypeChange(this.value)">
+            <option value="Cheque">Cheque</option>
+            <option value="UPI">UPI ID</option>
+            <option value="Passbook">Passbook / Account</option>
+            <option value="Bank Transfer">Bank Transfer / NEFT / RTGS</option>
+          </select>
         </div>
+
+        <div class="form-group" id="af-detail-group">
+          <label class="form-label" id="af-detail-label">Cheque Number *</label>
+          <input type="text" id="af-detail-val" class="form-control" required placeholder="e.g. CHQ-882310">
+        </div>
+
+        <div class="form-group full-width">
+          <label class="form-label">Bank Details *</label>
+          <input type="text" id="af-bank-details" class="form-control" required placeholder="Bank Name, Branch, Account No, IFSC (e.g. State Bank of India, Fort Branch)">
+        </div>
+
         <div class="form-group full-width">
           <label class="form-label">Notes / Description</label>
           <textarea id="af-notes" class="form-control" placeholder="Details of the financial transaction..."></textarea>
@@ -2870,14 +2893,39 @@ window.openAddFinanceModal = function () {
     </form>
   `);
 
+  window.handleTxTypeChange = function (val) {
+    const label = document.getElementById('af-detail-label');
+    const input = document.getElementById('af-detail-val');
+    if (!label || !input) return;
+
+    if (val === 'Cheque') {
+      label.innerText = 'Cheque Number *';
+      input.placeholder = 'e.g. CHQ-882310';
+    } else if (val === 'UPI') {
+      label.innerText = 'UPI ID *';
+      input.placeholder = 'e.g. user@okhdfcbank';
+    } else if (val === 'Passbook') {
+      label.innerText = 'Passbook Number *';
+      input.placeholder = 'e.g. PBK-990421';
+    } else {
+      label.innerText = 'UTR / Reference Number *';
+      input.placeholder = 'e.g. UTR-HDFC-991204';
+    }
+  };
+
   document.getElementById('add-finance-form').onsubmit = async (e) => {
     e.preventDefault();
+    const txType = document.getElementById('af-tx-type').value;
+    const detailVal = document.getElementById('af-detail-val').value.trim();
+    const bankDetails = document.getElementById('af-bank-details').value.trim();
+    const referenceFormatted = `${txType}: ${detailVal} | Bank: ${bankDetails}`;
+
     const res = await api('/api/finance/records', {
       method: 'POST',
       body: JSON.stringify({
         category: document.getElementById('af-cat').value,
         amount: document.getElementById('af-amt').value,
-        reference_no: document.getElementById('af-ref').value,
+        reference_no: referenceFormatted,
         notes: document.getElementById('af-notes').value
       })
     });
@@ -6088,12 +6136,14 @@ function filterUsersByRole(role) {
 }
 
 function getCreateTaskFormData() {
+  const startDateInput = document.getElementById('ct-start-date');
+  const startDate = startDateInput ? startDateInput.value : new Date().toISOString().substring(0, 10);
   return {
     title: document.getElementById('ct-title').value,
     assigned_to_user_id: document.getElementById('ct-user-id').value,
     task_type: document.getElementById('ct-type').value,
     priority: document.getElementById('ct-priority').value,
-    start_date: document.getElementById('ct-start-date').value,
+    start_date: startDate,
     deadline: document.getElementById('ct-deadline').value,
     project_ref: document.getElementById('ct-project-ref').value,
     description: document.getElementById('ct-desc').value,
@@ -6191,10 +6241,7 @@ window.openCreateTaskModal = async function (prefillUserId = null, prefillUserNa
           </select>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Start Date *</label>
-          <input type="date" id="ct-start-date" class="form-control" required value="${new Date().toISOString().substring(0, 10)}">
-        </div>
+        <input type="hidden" id="ct-start-date" value="${new Date().toISOString().substring(0, 10)}">
 
         <div class="form-group">
           <label class="form-label">Completion Deadline *</label>
