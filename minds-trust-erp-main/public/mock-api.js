@@ -327,11 +327,24 @@
   function handleAdminPrograms(ctx) {
     if (ctx.method === 'GET') {
       const programs = (ctx.db.programs || []).map(p => {
-        const enrolled = (ctx.db.students || []).filter(s => {
+        const matchedStudents = (ctx.db.students || []).filter(s => {
           if (s.program_id === p.id || s.program_code === p.program_code) return true;
           return (s.courses || []).some(c => c.program_id === p.id || c.course_name === p.program_name);
-        }).length;
-        return { ...p, enrolled_students: enrolled };
+        });
+        return { 
+          ...p, 
+          enrolled_students: matchedStudents.length, 
+          student_count: matchedStudents.length,
+          enrolled_student_list: matchedStudents.map(s => ({
+            id: s.id,
+            student_code: s.student_code,
+            full_name: s.full_name,
+            email: s.email,
+            phone: s.phone,
+            student_status: s.student_status,
+            academic_status: s.academic_status
+          }))
+        };
       });
       return { programs };
     }
@@ -1519,14 +1532,23 @@
   function handleAdminTrainers(ctx) {
     const trainers = (ctx.db.trainers || []).map(t => {
       const user = (ctx.db.users || []).find(u => u.id === t.user_id) || {};
-      const eventCount = (ctx.db.events || []).filter(e => e.trainer_id === t.id).length;
+      const assignedEvents = (ctx.db.events || []).filter(e => e.trainer_id === t.id);
       return {
         ...t,
         full_name: t.full_name || user.full_name || 'Trainer Faculty',
         email: t.email || user.email || '',
         phone: t.phone || user.phone || '',
         user_status: user.status || 'Active',
-        event_count: eventCount
+        event_count: assignedEvents.length,
+        assigned_events: assignedEvents.map(e => ({
+          id: e.id,
+          event_code: e.event_code,
+          title: e.title,
+          start_date: e.start_date,
+          last_date: e.last_date,
+          status: e.status,
+          venue: e.venue
+        }))
       };
     });
     return { trainers };
@@ -1537,13 +1559,15 @@
       const trainer = (ctx.db.trainers || []).find(t => t.id === ev.trainer_id) || {};
       const user = trainer.user_id ? (ctx.db.users || []).find(u => u.id === trainer.user_id) : null;
       const trainerName = trainer.full_name || user?.full_name || 'Unassigned';
-      const attendeeCount = ev.attendee_count !== undefined 
-        ? ev.attendee_count 
-        : ((ctx.db.students || []).filter(s => s.student_status === 'Joined').length || 18);
+      const isCompleted = ev.status === 'Completed';
+      const joinedStudents = (ctx.db.students || []).filter(s => s.student_status === 'Joined' || s.student_status === 'Enrolled');
+      const completedStudents = (ctx.db.students || []).filter(s => s.academic_status === 'Completed');
+      const attendeeCount = isCompleted ? (completedStudents.length || 12) : (joinedStudents.length || 18);
       return {
         ...ev,
         trainer_name: trainerName,
-        attendee_count: attendeeCount
+        attendee_count: attendeeCount,
+        attendee_type: isCompleted ? 'Completed' : 'Enrolled'
       };
     });
     return { events };
@@ -1631,11 +1655,12 @@
     if (donReviewMatch && method === 'PUT') {
       const don = (db.donations || []).find(d => d.id === Number(donReviewMatch[1]));
       if (don) {
-        don.payment_status = body.payment_status || 'Verified';
-        don.doc_status = body.doc_status || 'Verified';
+        if (body.payment_status) don.payment_status = body.payment_status;
+        if (body.doc_status) don.doc_status = body.doc_status;
+        if (body.admin_comments !== undefined) don.admin_comments = body.admin_comments;
         MockDB.save(db);
       }
-      return { message: 'Donation verification status updated' };
+      return { message: 'Donation status updated successfully' };
     }
 
     const founderMatch = founderApprovalRegex.exec(pathname);

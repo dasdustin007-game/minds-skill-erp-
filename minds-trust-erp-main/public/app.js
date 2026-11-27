@@ -897,8 +897,21 @@ async function renderAdminPrograms(mount) {
     </div>
 
     <div class="card">
+      <!-- Search Bar -->
+      <div style="padding:14px 18px; border-bottom:1px solid #e2e8f0; background:#f8fafc;">
+        <div style="position:relative; max-width:440px;">
+          <span class="material-icons-round" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:20px; color:#64748b;">search</span>
+          <input 
+            type="text" 
+            class="form-control" 
+            style="padding-left:40px; height:38px; border-radius:20px; font-size:13px; border:1px solid #cbd5e1; width:100%;" 
+            placeholder="Search programs by code, name, abbreviation, trainer..." 
+            oninput="filterModuleTable('programs-data-table', this.value)"
+          >
+        </div>
+      </div>
       <div class="table-responsive">
-        <table class="data-table">
+        <table class="data-table" id="programs-data-table">
           <thead>
             <tr>
               <th>Program Code</th>
@@ -920,7 +933,17 @@ async function renderAdminPrograms(mount) {
                   <td><span class="badge badge-blue">${p.program_abbreviation}</span></td>
                   <td><strong>${p.trainer_name || 'Prof. Arvind Deshmukh'}</strong></td>
                   <td>${p.duration_weeks} Weeks</td>
-                  <td><span class="badge badge-green">${p.student_count || 0} Students</span></td>
+                  <td>
+                    <button 
+                      class="btn btn-sm" 
+                      onclick="void openProgramEnrolledStudentsModal(${JSON.stringify(p).replaceAll('"', '&quot;')})" 
+                      style="background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; font-weight:800; padding:4px 10px; border-radius:14px; cursor:pointer;"
+                      title="Click to view enrolled student names"
+                    >
+                      <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">school</span>
+                      ${p.student_count || p.enrolled_students || 0} Students
+                    </button>
+                  </td>
                   <td><span class="badge badge-green">${p.status}</span></td>
                   <td>${p.created_at ? p.created_at.slice(0, 10) : '2026-11-18'}</td>
                 </tr>
@@ -2428,11 +2451,21 @@ async function renderAdminDonors(mount) {
 
     <!-- Donors Directory with 80G PAN Info -->
     <div class="card" style="margin-bottom:24px;">
-      <div class="card-header">
+      <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
         <h3 class="card-title">Registered Donors & Tax Profiles</h3>
+        <div style="position:relative; width:280px;">
+          <span class="material-icons-round" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:18px; color:#64748b;">search</span>
+          <input 
+            type="text" 
+            class="form-control" 
+            style="padding-left:36px; height:34px; border-radius:18px; font-size:12.5px; border:1px solid #cbd5e1; width:100%;" 
+            placeholder="Search donors by name, code, PAN..." 
+            oninput="filterModuleTable('donors-directory-table', this.value)"
+          >
+        </div>
       </div>
       <div class="table-responsive">
-        <table class="data-table">
+        <table class="data-table" id="donors-directory-table">
           <thead>
             <tr>
               <th>Donor Code</th>
@@ -2464,11 +2497,21 @@ async function renderAdminDonors(mount) {
     </div>
 
     <div class="card" style="margin-bottom:24px;">
-      <div class="card-header">
+      <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
         <h3 class="card-title">Donation Submissions Ledger & 80G Certificates</h3>
+        <div style="position:relative; width:320px;">
+          <span class="material-icons-round" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:18px; color:#64748b;">search</span>
+          <input 
+            type="text" 
+            class="form-control" 
+            style="padding-left:36px; height:34px; border-radius:18px; font-size:12.5px; border:1px solid #cbd5e1; width:100%;" 
+            placeholder="Search donations by receipt, donor, amount, status..." 
+            oninput="filterModuleTable('donations-ledger-table', this.value)"
+          >
+        </div>
       </div>
       <div class="table-responsive">
-        <table class="data-table">
+        <table class="data-table" id="donations-ledger-table">
           <thead>
             <tr>
               <th>Receipt No</th>
@@ -2504,7 +2547,15 @@ async function renderAdminDonors(mount) {
                   </button>
                 </td>
                 <td>
-                  <button class="btn btn-primary btn-sm" onclick="openReviewDonationModal(${JSON.stringify(don).replaceAll('"', '&quot;')})">Review / Approve</button>
+                  ${(don.doc_status === 'Verified' || don.doc_status === 'Approved') ? `
+                    <button class="btn btn-primary btn-sm" style="background:#154d34; border-color:#154d34; font-weight:700;" onclick="openReviewDonationModal(${JSON.stringify(don).replaceAll('"', '&quot;')})">
+                      <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">verified</span> Final Approval
+                    </button>
+                  ` : `
+                    <div style="font-size:11px; color:#94a3b8; font-style:italic; display:flex; align-items:center; gap:4px;" title="Actions button is hidden until document verification is approved in View Document">
+                      <span class="material-icons-round" style="font-size:14px; color:#cbd5e1;">lock</span> Verify Doc First
+                    </div>
+                  `}
                 </td>
               </tr>
             `).join('')}
@@ -2618,9 +2669,18 @@ window.openDonorDocumentViewer = function (don) {
             </a>
           ` : ''}
         </div>
-        <div style="display:flex; gap:8px;">
-          <button class="btn btn-primary" onclick="window.print()">
-            <span class="material-icons-round" style="font-size:16px; vertical-align:middle; margin-right:4px;">print</span>Print / Save PDF
+        <div style="display:flex; gap:8px; align-items:center;">
+          ${(don.doc_status !== 'Verified' && don.doc_status !== 'Approved') ? `
+            <button class="btn btn-primary" onclick="void approveDonationDocument(${don.id})" style="background:#0f766e; border-color:#0f766e; font-weight:800;">
+              <span class="material-icons-round" style="font-size:16px; vertical-align:middle; margin-right:4px;">task_alt</span> Approve Supporting Document
+            </button>
+          ` : `
+            <span class="badge badge-green" style="font-size:12px; padding:6px 12px;">
+              <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">check_circle</span> Document Approved
+            </span>
+          `}
+          <button class="btn btn-secondary" onclick="window.print()">
+            <span class="material-icons-round" style="font-size:16px; vertical-align:middle; margin-right:4px;">print</span>Print
           </button>
           <button class="btn btn-secondary" onclick="closeModal()">Close</button>
         </div>
@@ -2729,8 +2789,21 @@ async function renderAdminFinance(mount) {
       </div>
 
       <div class="card">
+        <!-- Search Bar -->
+        <div style="padding:14px 18px; border-bottom:1px solid #e2e8f0; background:#f8fafc;">
+          <div style="position:relative; max-width:440px;">
+            <span class="material-icons-round" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:20px; color:#64748b;">search</span>
+            <input 
+              type="text" 
+              class="form-control" 
+              style="padding-left:40px; height:38px; border-radius:20px; font-size:13px; border:1px solid #cbd5e1; width:100%;" 
+              placeholder="Search finance transactions by Txn ID, donation type, reference..." 
+              oninput="filterModuleTable('finance-records-table', this.value)"
+            >
+          </div>
+        </div>
         <div class="table-responsive">
-          <table class="data-table">
+          <table class="data-table" id="finance-records-table">
             <thead>
               <tr>
                 <th>Txn ID</th>
@@ -2828,8 +2901,21 @@ async function renderAdminEmails(mount) {
     </div>
 
     <div class="card">
+      <!-- Search Bar -->
+      <div style="padding:14px 18px; border-bottom:1px solid #e2e8f0; background:#f8fafc;">
+        <div style="position:relative; max-width:440px;">
+          <span class="material-icons-round" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:20px; color:#64748b;">search</span>
+          <input 
+            type="text" 
+            class="form-control" 
+            style="padding-left:40px; height:38px; border-radius:20px; font-size:13px; border:1px solid #cbd5e1; width:100%;" 
+            placeholder="Search trainers by code, name, specialization, qualification..." 
+            oninput="filterModuleTable('trainers-data-table', this.value)"
+          >
+        </div>
+      </div>
       <div class="table-responsive">
-        <table class="data-table">
+        <table class="data-table" id="trainers-data-table">
           <thead>
             <tr>
               <th>Timestamp</th>
@@ -2870,8 +2956,21 @@ async function renderAdminAudit(mount) {
     </div>
 
     <div class="card">
+      <!-- Search Bar -->
+      <div style="padding:14px 18px; border-bottom:1px solid #e2e8f0; background:#f8fafc;">
+        <div style="position:relative; max-width:440px;">
+          <span class="material-icons-round" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:20px; color:#64748b;">search</span>
+          <input 
+            type="text" 
+            class="form-control" 
+            style="padding-left:40px; height:38px; border-radius:20px; font-size:13px; border:1px solid #cbd5e1; width:100%;" 
+            placeholder="Search events by code, title, trainer, venue, status..." 
+            oninput="filterModuleTable('events-data-table', this.value)"
+          >
+        </div>
+      </div>
       <div class="table-responsive">
-        <table class="data-table">
+        <table class="data-table" id="events-data-table">
           <thead>
             <tr>
               <th>Date</th>
@@ -2919,8 +3018,21 @@ async function renderAdminTrainers(mount) {
     </div>
 
     <div class="card">
+      <!-- Search Bar -->
+      <div style="padding:14px 18px; border-bottom:1px solid #e2e8f0; background:#f8fafc;">
+        <div style="position:relative; max-width:440px;">
+          <span class="material-icons-round" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:20px; color:#64748b;">search</span>
+          <input 
+            type="text" 
+            class="form-control" 
+            style="padding-left:40px; height:38px; border-radius:20px; font-size:13px; border:1px solid #cbd5e1; width:100%;" 
+            placeholder="Search audit logs by date, user, portal, action, details..." 
+            oninput="filterModuleTable('audit-logs-table', this.value)"
+          >
+        </div>
+      </div>
       <div class="table-responsive">
-        <table class="data-table">
+        <table class="data-table" id="audit-logs-table">
           <thead>
             <tr>
               <th>Code</th>
@@ -2937,7 +3049,17 @@ async function renderAdminTrainers(mount) {
                 <td style="font-weight:700;">${t.full_name || 'Prof. Arvind Deshmukh'}</td>
                 <td>${t.specialization}</td>
                 <td>${t.qualification || 'N/A'}</td>
-                <td><strong>${t.event_count}</strong> events</td>
+                <td>
+                    <button 
+                      class="btn btn-sm" 
+                      onclick="void openTrainerAssignedEventsModal(${JSON.stringify(t).replaceAll('"', '&quot;')})" 
+                      style="background:#f3e8ff; color:#7e22ce; border:1px solid #e9d5ff; font-weight:800; padding:4px 10px; border-radius:14px; cursor:pointer;"
+                      title="Click to view assigned event names"
+                    >
+                      <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">event</span>
+                      <strong>${t.event_count || (t.assigned_events ? t.assigned_events.length : 0)}</strong> events
+                    </button>
+                  </td>
               </tr>
             `).join('')}
           </tbody>
@@ -2971,7 +3093,7 @@ async function renderAdminEvents(mount) {
               <th>End Date</th>
               <th>Trainer</th>
               <th>Status</th>
-              <th>Attendees</th>
+              <th>Attendance (Enrolled / Completed)</th>
             </tr>
           </thead>
           <tbody>
@@ -2983,7 +3105,19 @@ async function renderAdminEvents(mount) {
                 <td>${ev.last_date}</td>
                 <td>${ev.trainer_name || 'Unassigned'}</td>
                 <td><span class="badge ${ev.status === 'Completed' ? 'badge-green' : 'badge-blue'}">${ev.status}</span></td>
-                <td><strong>${ev.attendee_count !== undefined ? ev.attendee_count : 18}</strong> students</td>
+                <td>
+                    ${ev.status === 'Completed' ? `
+                      <span class="badge badge-green" style="font-size:11px; padding:4px 9px;">
+                        <span class="material-icons-round" style="font-size:13px; vertical-align:middle; margin-right:2px;">check_circle</span>
+                        <strong>${ev.attendee_count || 12}</strong> Completed
+                      </span>
+                    ` : `
+                      <span class="badge badge-blue" style="font-size:11px; padding:4px 9px;">
+                        <span class="material-icons-round" style="font-size:13px; vertical-align:middle; margin-right:2px;">how_to_reg</span>
+                        <strong>${ev.attendee_count || 18}</strong> Enrolled
+                      </span>
+                    `}
+                  </td>
               </tr>
             `).join('')}
           </tbody>
@@ -5315,20 +5449,21 @@ async function renderAdminHierarchyView(mount) {
                           <button 
                             class="btn btn-primary btn-sm" 
                             onclick="void openCreateTaskModal(${u.id}, '${u.full_name}', '${u.hierarchy_role}')" 
-                            style="padding:5px 12px; font-size:11.5px; font-weight:700; white-space:nowrap; background:#154d34; border-color:#154d34;"
+                            style="padding:6px 14px; font-size:12px; font-weight:700; white-space:nowrap; background:#154d34; border-color:#154d34; border-radius:8px;"
                             title="Assign a new task to this unassigned employee"
                           >
-                            <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">add_task</span> Assign Task
+                            <span class="material-icons-round" style="font-size:15px; vertical-align:middle; margin-right:3px;">add_task</span> Assign Task
                           </button>
-                        ` : ''}
-                        <button 
-                          class="btn btn-secondary btn-sm" 
-                          onclick="void openEmployeeTaskHistoryModal(${u.id})" 
-                          style="padding:5px 12px; font-size:12px; white-space:nowrap;"
-                          title="View complete task & performance history"
-                        >
-                          <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">history</span> History
-                        </button>
+                        ` : `
+                          <button 
+                            class="btn btn-secondary btn-sm" 
+                            onclick="void openEmployeeTaskHistoryModal(${u.id})" 
+                            style="padding:5px 12px; font-size:12px; white-space:nowrap;"
+                            title="View complete task & performance history"
+                          >
+                            <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">history</span> History
+                          </button>
+                        `}
                       </div>
                     </td>
                   </tr>
@@ -6662,3 +6797,200 @@ window.openCreate80GWorkflowModal = async function () {
 
 
 window.addEventListener('DOMContentLoaded', initApp);
+
+
+// -------------------------------------------------------------
+// NEW MODALS & SEARCH ENHANCEMENTS
+// -------------------------------------------------------------
+
+// Universal Real-Time Table Search for Any Module Table
+window.filterModuleTable = function(tableId, query) {
+  const table = document.getElementById(tableId);
+  if (!table) return;
+  const q = (query || '').toLowerCase().trim();
+  const rows = table.querySelectorAll('tbody tr');
+  let matchCount = 0;
+  rows.forEach(tr => {
+    if (tr.classList.contains('empty-state-row')) return;
+    const text = tr.innerText.toLowerCase();
+    if (!q || text.includes(q)) {
+      tr.style.display = '';
+      matchCount++;
+    } else {
+      tr.style.display = 'none';
+    }
+  });
+
+  // Handle dynamic empty state if no rows match
+  let noMatchRow = table.querySelector('.search-no-match-row');
+  if (q && matchCount === 0) {
+    if (!noMatchRow) {
+      const colCount = table.querySelectorAll('thead th').length || 7;
+      const tbody = table.querySelector('tbody');
+      const tr = document.createElement('tr');
+      tr.className = 'search-no-match-row';
+      tr.innerHTML = `<td colspan="${colCount}" style="text-align:center; padding:32px; color:#64748b;">
+        <span class="material-icons-round" style="font-size:32px; color:#cbd5e1; display:block; margin-bottom:6px;">search_off</span>
+        No records match "<strong>${q}</strong>"
+      </td>`;
+      tbody.appendChild(tr);
+    } else {
+      noMatchRow.style.display = '';
+      noMatchRow.querySelector('strong').innerText = q;
+    }
+  } else if (noMatchRow) {
+    noMatchRow.style.display = 'none';
+  }
+};
+
+// Modal: Program Enrolled Students Names & Cohort Details
+window.openProgramEnrolledStudentsModal = async function(p) {
+  let students = p.enrolled_student_list || [];
+  if (students.length === 0) {
+    try {
+      const sRes = await api('/api/admin/students');
+      students = (sRes.students || []).filter(s => {
+        if (s.program_id === p.id || s.program_code === p.program_code) return true;
+        return (s.courses || []).some(c => c.program_id === p.id || c.course_name === p.program_name);
+      });
+    } catch(e) {}
+  }
+
+  showModal(`Enrolled Students: ${p.program_name} (${p.program_code})`, `
+    <div style="font-family:'Plus Jakarta Sans', sans-serif;">
+      <!-- Header Banner -->
+      <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:16px; margin-bottom:18px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-weight:800; font-size:15px; color:#166534;">${p.program_name}</div>
+          <div style="font-size:12px; color:#64748b; margin-top:3px;">
+            Code: <strong>${p.program_code}</strong> &bull; Duration: <strong>${p.duration_weeks} Weeks</strong> &bull; Trainer: <strong>${p.trainer_name || 'Prof. Arvind Deshmukh'}</strong>
+          </div>
+        </div>
+        <span class="badge badge-green" style="font-size:13px; font-weight:800; padding:6px 14px;">
+          ${students.length} Enrolled
+        </span>
+      </div>
+
+      <!-- Students Table -->
+      <div class="table-responsive" style="max-height:400px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:10px;">
+        <table class="data-table" style="width:100%; border-collapse:collapse; font-size:13px;">
+          <thead>
+            <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0; position:sticky; top:0; z-index:1;">
+              <th style="padding:10px 14px;">S.No</th>
+              <th style="padding:10px 14px;">Student Name</th>
+              <th style="padding:10px 14px;">Student Code</th>
+              <th style="padding:10px 14px;">Contact Info</th>
+              <th style="padding:10px 14px; text-align:center;">Student Status</th>
+              <th style="padding:10px 14px; text-align:center;">Academic Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${students.length === 0 ? `
+              <tr><td colspan="6" style="text-align:center; padding:30px; color:#64748b;">No students enrolled in this program yet.</td></tr>
+            ` : students.map((s, idx) => `
+              <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="padding:10px 14px; color:#64748b; text-align:center;">${idx + 1}</td>
+                <td style="padding:10px 14px; font-weight:800; color:#0f172a;">${s.full_name}</td>
+                <td style="padding:10px 14px;"><span class="badge" style="background:#154d34; color:#fff; font-weight:800;">${s.student_code}</span></td>
+                <td style="padding:10px 14px; color:#475569; font-size:12px;">${s.email || '-'}<br><small style="color:#64748b;">${s.phone || ''}</small></td>
+                <td style="padding:10px 14px; text-align:center;">
+                  <span class="badge ${getStudentStatusBadgeClass(s.student_status)}">${s.student_status || 'Joined'}</span>
+                </td>
+                <td style="padding:10px 14px; text-align:center;">
+                  <span class="badge ${s.academic_status === 'Completed' ? 'badge-green' : 'badge-blue'}">${s.academic_status || 'In Progress'}</span>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:18px; text-align:right;">
+        <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+      </div>
+    </div>
+  `);
+};
+
+// Modal: Trainer Assigned Events Names & Schedules
+window.openTrainerAssignedEventsModal = async function(t) {
+  let events = t.assigned_events || [];
+  if (events.length === 0) {
+    try {
+      const evRes = await api('/api/admin/events');
+      events = (evRes.events || []).filter(e => e.trainer_id === t.id);
+    } catch(e) {}
+  }
+
+  showModal(`Assigned Events: ${t.full_name} (${t.trainer_code})`, `
+    <div style="font-family:'Plus Jakarta Sans', sans-serif;">
+      <!-- Header Banner -->
+      <div style="background:#f3e8ff; border:1px solid #e9d5ff; border-radius:12px; padding:16px; margin-bottom:18px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-weight:800; font-size:15px; color:#7e22ce;">${t.full_name}</div>
+          <div style="font-size:12px; color:#64748b; margin-top:3px;">
+            Trainer Code: <strong>${t.trainer_code}</strong> &bull; Specialization: <strong>${t.specialization}</strong>
+          </div>
+        </div>
+        <span class="badge" style="background:#7e22ce; color:#fff; font-size:13px; font-weight:800; padding:6px 14px;">
+          ${events.length} Assigned Event${events.length === 1 ? '' : 's'}
+        </span>
+      </div>
+
+      <!-- Events Table -->
+      <div class="table-responsive" style="max-height:400px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:10px;">
+        <table class="data-table" style="width:100%; border-collapse:collapse; font-size:13px;">
+          <thead>
+            <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0; position:sticky; top:0; z-index:1;">
+              <th style="padding:10px 14px;">Event Code</th>
+              <th style="padding:10px 14px;">Event Title</th>
+              <th style="padding:10px 14px;">Start Date</th>
+              <th style="padding:10px 14px;">End Date</th>
+              <th style="padding:10px 14px;">Venue</th>
+              <th style="padding:10px 14px; text-align:center;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${events.length === 0 ? `
+              <tr><td colspan="6" style="text-align:center; padding:30px; color:#64748b;">No events currently assigned to this trainer.</td></tr>
+            ` : events.map(e => `
+              <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="padding:10px 14px; font-weight:800; color:#154d34;">${e.event_code}</td>
+                <td style="padding:10px 14px; font-weight:800; color:#0f172a;">${e.title}</td>
+                <td style="padding:10px 14px; color:#475569;">${e.start_date}</td>
+                <td style="padding:10px 14px; color:#475569;">${e.last_date}</td>
+                <td style="padding:10px 14px; color:#64748b; font-size:12px;">${e.venue || 'Main Campus'}</td>
+                <td style="padding:10px 14px; text-align:center;">
+                  <span class="badge ${e.status === 'Completed' ? 'badge-green' : 'badge-blue'}">${e.status}</span>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:18px; text-align:right;">
+        <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+      </div>
+    </div>
+  `);
+};
+
+// Action: Approve Supporting Document in Donation Verification
+window.approveDonationDocument = async function(donationId) {
+  try {
+    const res = await api(`/api/admin/donations/${donationId}/review`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        payment_status: 'Approved',
+        doc_status: 'Approved',
+        admin_comments: 'Supporting document verified and approved by Administrator.'
+      })
+    });
+    closeModal();
+    showToast('Supporting document approved successfully! Final Actions button unlocked.');
+    void renderAdminDonors(document.getElementById('portal-content-mount'));
+  } catch (err) {
+    showToast('Failed to approve document: ' + err.message);
+  }
+};
