@@ -2552,15 +2552,23 @@ async function renderAdminDonors(mount) {
                   </button>
                 </td>
                 <td>
-                  ${(don.doc_status === 'Verified' || don.doc_status === 'Approved') ? `
-                    <button class="btn btn-primary btn-sm" style="background:#154d34; border-color:#154d34; font-weight:700;" onclick="openReviewDonationModal(${JSON.stringify(don).replaceAll('"', '&quot;')})">
-                      <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">verified</span> Final Approval
-                    </button>
-                  ` : `
-                    <div style="font-size:11px; color:#94a3b8; font-style:italic; display:flex; align-items:center; gap:4px;" title="Actions button is hidden until document verification is approved in View Document">
-                      <span class="material-icons-round" style="font-size:14px; color:#cbd5e1;">lock</span> Verify Doc First
-                    </div>
-                  `}
+                  ${(() => {
+                    const status = don.doc_status || 'Pending';
+                    if (status === 'Approved' || status === 'Verified') {
+                      return `<span class="badge badge-green" style="font-weight:700; padding:6px 12px; font-size:11.5px; display:inline-flex; align-items:center; gap:4px;">
+                        <span class="material-icons-round" style="font-size:15px;">verified</span> Document Verified / Document Finally Approved
+                      </span>`;
+                    } else if (status === 'Pending Review' || status === 'Pending') {
+                      return `<span class="badge badge-yellow" style="font-weight:700; padding:6px 12px; font-size:11.5px; display:inline-flex; align-items:center; gap:4px;">
+                        <span class="material-icons-round" style="font-size:15px;">hourglass_empty</span> Document Pending
+                      </span>`;
+                    } else if (status === 'Rejected') {
+                      return `<span class="badge badge-red" style="font-weight:700; padding:6px 12px; font-size:11.5px; display:inline-flex; align-items:center; gap:4px;">
+                        <span class="material-icons-round" style="font-size:15px;">cancel</span> Document Rejected
+                      </span>`;
+                    }
+                    return `<span class="badge badge-gray" style="padding:6px 12px; font-size:11.5px;">Document Pending</span>`;
+                  })()}
                 </td>
               </tr>
             `).join('')}
@@ -2662,6 +2670,34 @@ window.openDonorDocumentViewer = function (don) {
         </div>
       </div>
 
+      <!-- Document Verification Actions Bar -->
+      <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:18px;">
+        <div style="font-weight:800; font-size:14px; color:#0f172a; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+          <span class="material-icons-round" style="font-size:18px; color:#154d34;">rule</span>
+          Document Verification Decision
+        </div>
+        <div style="font-size:12.5px; color:#64748b; margin-bottom:12px;">
+          Review the uploaded donor document above and select one of the three actions to update the verification status:
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+          <button class="btn btn-primary" onclick="void setDonationDocumentDecision(${don.id}, 'Approved')" style="background:#16a34a; border-color:#16a34a; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+            <span class="material-icons-round" style="font-size:16px;">task_alt</span> Approve Document
+          </button>
+          <button class="btn btn-secondary" onclick="void setDonationDocumentDecision(${don.id}, 'Pending Review')" style="background:#fef3c7; border-color:#fcd34d; color:#92400e; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+            <span class="material-icons-round" style="font-size:16px;">hourglass_empty</span> Pending Review
+          </button>
+          <button class="btn btn-secondary" onclick="void setDonationDocumentDecision(${don.id}, 'Rejected')" style="background:#fee2e2; border-color:#fca5a5; color:#991b1b; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
+            <span class="material-icons-round" style="font-size:16px;">cancel</span> Reject Document
+          </button>
+          <div style="margin-left:auto;">
+            <span style="font-size:12px; color:#64748b;">Current Decision: </span>
+            <span class="badge ${don.doc_status === 'Approved' || don.doc_status === 'Verified' ? 'badge-green' : (don.doc_status === 'Rejected' ? 'badge-red' : 'badge-yellow')}" style="padding:4px 10px; font-weight:700;">
+              ${don.doc_status || 'Pending'}
+            </span>
+          </div>
+        </div>
+      </div>
+
       <!-- Action Buttons -->
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border-top:1px solid #e2e8f0; padding-top:16px;">
         <div>
@@ -2675,15 +2711,6 @@ window.openDonorDocumentViewer = function (don) {
           ` : ''}
         </div>
         <div style="display:flex; gap:8px; align-items:center;">
-          ${(don.doc_status !== 'Verified' && don.doc_status !== 'Approved') ? `
-            <button class="btn btn-primary" onclick="void approveDonationDocument(${don.id})" style="background:#0f766e; border-color:#0f766e; font-weight:800;">
-              <span class="material-icons-round" style="font-size:16px; vertical-align:middle; margin-right:4px;">task_alt</span> Approve Supporting Document
-            </button>
-          ` : `
-            <span class="badge badge-green" style="font-size:12px; padding:6px 12px;">
-              <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">check_circle</span> Document Approved
-            </span>
-          `}
           <button class="btn btn-secondary" onclick="window.print()">
             <span class="material-icons-round" style="font-size:16px; vertical-align:middle; margin-right:4px;">print</span>Print
           </button>
@@ -7030,23 +7057,29 @@ window.openTrainerAssignedEventsModal = async function(t) {
   `);
 };
 
-// Action: Approve Supporting Document in Donation Verification
-window.approveDonationDocument = async function(donationId) {
+// Action: Update Document Verification Decision (Approved, Pending Review, Rejected)
+window.setDonationDocumentDecision = async function(donationId, decision) {
   try {
     const res = await api(`/api/admin/donations/${donationId}/review`, {
       method: 'PUT',
       body: JSON.stringify({
         payment_status: 'Approved',
-        doc_status: 'Approved',
-        admin_comments: 'Supporting document verified and approved by Administrator.'
+        doc_status: decision,
+        admin_comments: `Document verification status set to ${decision} by Administrator.`
       })
     });
     closeModal();
-    showToast('Supporting document approved successfully! Final Actions button unlocked.');
+    const actionLabel = decision === 'Approved' ? 'Document Verified / Document Finally Approved' : (decision === 'Rejected' ? 'Document Rejected' : 'Document Pending');
+    showToast(`Document decision saved: ${actionLabel}`);
     void renderAdminDonors(document.getElementById('portal-content-mount'));
   } catch (err) {
-    showToast('Failed to approve document: ' + err.message);
+    showToast('Failed to update document decision: ' + err.message);
   }
+};
+
+// Action: Approve Supporting Document in Donation Verification
+window.approveDonationDocument = async function(donationId) {
+  return setDonationDocumentDecision(donationId, 'Approved');
 };
 
 
