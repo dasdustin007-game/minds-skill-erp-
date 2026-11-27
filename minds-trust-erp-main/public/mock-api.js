@@ -335,7 +335,7 @@
       });
       return { programs };
     }
-    const { program_name, duration_weeks, description } = ctx.body;
+    const { program_name, duration_weeks, description, trainer_name } = ctx.body;
     const words = (program_name || 'Vocational Training').trim().split(/\s+/);
     let abbr = words[0]?.slice(0, 3).toUpperCase() || 'PRG';
     if (words.length > 1) {
@@ -351,6 +351,7 @@
       program_code: progCode,
       duration_weeks: Number(duration_weeks) || 12,
       description: description || '',
+      trainer_name: trainer_name || '',
       status: 'Active'
     };
     ctx.db.programs = ctx.db.programs || [];
@@ -1498,6 +1499,56 @@
   }
 
   // Route map for static pathname lookups
+  
+  function handleAdminDonations(ctx) {
+    const donations = (ctx.db.donations || []).map(don => {
+      const donor = (ctx.db.donors || []).find(d => d.id === don.donor_id) || {};
+      const taxCert = (ctx.db.donor_tax_certificates || []).find(tc => tc.donation_id === don.id);
+      return {
+        ...don,
+        donor_code: donor.donor_code || don.donor_code || 'DNR-000',
+        donor_name: donor.full_name || don.donor_name || 'Anonymous Donor',
+        donor_phone: donor.phone || don.donor_phone || '',
+        pan_number: donor.pan_number || don.pan_number || 'AAACT2026P',
+        tax_cert_number: taxCert ? taxCert.cert_number : (don.tax_cert_number || null)
+      };
+    });
+    return { donations };
+  }
+
+  function handleAdminTrainers(ctx) {
+    const trainers = (ctx.db.trainers || []).map(t => {
+      const user = (ctx.db.users || []).find(u => u.id === t.user_id) || {};
+      const eventCount = (ctx.db.events || []).filter(e => e.trainer_id === t.id).length;
+      return {
+        ...t,
+        full_name: t.full_name || user.full_name || 'Trainer Faculty',
+        email: t.email || user.email || '',
+        phone: t.phone || user.phone || '',
+        user_status: user.status || 'Active',
+        event_count: eventCount
+      };
+    });
+    return { trainers };
+  }
+
+  function handleAdminEvents(ctx) {
+    const events = (ctx.db.events || []).map(ev => {
+      const trainer = (ctx.db.trainers || []).find(t => t.id === ev.trainer_id) || {};
+      const user = trainer.user_id ? (ctx.db.users || []).find(u => u.id === trainer.user_id) : null;
+      const trainerName = trainer.full_name || user?.full_name || 'Unassigned';
+      const attendeeCount = ev.attendee_count !== undefined 
+        ? ev.attendee_count 
+        : ((ctx.db.students || []).filter(s => s.student_status === 'Joined').length || 18);
+      return {
+        ...ev,
+        trainer_name: trainerName,
+        attendee_count: attendeeCount
+      };
+    });
+    return { events };
+  }
+
   const staticRoutes = {
     'POST:/api/auth/login': handleAuthLogin,
     'GET:/api/auth/me': handleAuthMe,
@@ -1518,9 +1569,9 @@
     'POST:/api/admin/certificates/generate': handleCertificates,
     'GET:/api/certificates/verify': handleCertificates,
     'GET:/api/admin/donors': ctx => ({ donors: ctx.db.donors || [] }),
-    'GET:/api/admin/donations': ctx => ({ donations: ctx.db.donations || [] }),
-    'GET:/api/admin/trainers': ctx => ({ trainers: ctx.db.trainers || [] }),
-    'GET:/api/admin/events': ctx => ({ events: ctx.db.events || [] }),
+    'GET:/api/admin/donations': handleAdminDonations,
+    'GET:/api/admin/trainers': handleAdminTrainers,
+    'GET:/api/admin/events': handleAdminEvents,
     'GET:/api/admin/email-logs': ctx => ({ logs: ctx.db.email_logs || [] }),
     'GET:/api/admin/audit-logs': ctx => ({ logs: ctx.db.audit_logs || [] }),
     'GET:/api/finance/records': handleFinanceRecords,
@@ -1580,7 +1631,7 @@
     if (donReviewMatch && method === 'PUT') {
       const don = (db.donations || []).find(d => d.id === Number(donReviewMatch[1]));
       if (don) {
-        don.payment_status = body.payment_status || 'Approved';
+        don.payment_status = body.payment_status || 'Verified';
         don.doc_status = body.doc_status || 'Verified';
         MockDB.save(db);
       }

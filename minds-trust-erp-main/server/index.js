@@ -8,6 +8,11 @@ const multer = require('multer');
 const cron = require('node-cron');
 const db = require('./database_erp');
 
+
+try {
+  db.prepare("ALTER TABLE programs ADD COLUMN trainer_name TEXT").run();
+} catch (e) {}
+
 const app = express();
 app.disable('x-powered-by');
 const PORT = process.env.PORT || 3000;
@@ -489,7 +494,7 @@ app.get('/api/admin/programs', requireAuth('ADMIN'), (req, res) => {
 });
 
 app.post('/api/admin/programs', requireAuth('ADMIN'), (req, res) => {
-  const { program_name, duration_weeks, description } = req.body;
+  const { program_name, duration_weeks, description, trainer_name } = req.body;
   if (!program_name) return res.status(400).json({ error: 'Program Name is required.' });
 
   // Generate Program Abbreviation automatically (e.g. "Full Stack Development" -> "FSD")
@@ -506,9 +511,9 @@ app.post('/api/admin/programs', requireAuth('ADMIN'), (req, res) => {
   const program_code = `PRG-${abbr}-${String(count).padStart(2, '0')}`;
 
   const result = db.prepare(`
-    INSERT INTO programs (program_name, program_abbreviation, program_code, description, duration_weeks, status)
-    VALUES (?, ?, ?, ?, ?, 'Active')
-  `).run(program_name, abbr, program_code, description || '', Number.parseInt(duration_weeks, 10) || 12);
+    INSERT INTO programs (program_name, program_abbreviation, program_code, description, duration_weeks, trainer_name, status)
+    VALUES (?, ?, ?, ?, ?, ?, 'Active')
+  `).run(program_name, abbr, program_code, description || '', Number.parseInt(duration_weeks, 10) || 12, trainer_name || '');
 
   logAudit(req.session.user.id, req.session.user.full_name, 'ADMIN', 'Create Program', `Created Program ${program_name} with Unique Code ${program_code}`);
   res.json({ message: 'Program created successfully', program_code, program_id: result.lastInsertRowid, abbreviation: abbr });
@@ -879,7 +884,8 @@ app.get('/api/admin/donations', requireAuth('ADMIN'), (req, res) => {
 
 app.put('/api/admin/donations/:id/review', requireAuth('ADMIN'), (req, res) => {
   const { id } = req.params;
-  const { payment_status, doc_status, admin_comments } = req.body;
+  let { payment_status, doc_status, admin_comments } = req.body;
+  if (payment_status === 'Approved') payment_status = 'Verified';
 
   db.prepare(`
     UPDATE donations 

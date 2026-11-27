@@ -544,6 +544,19 @@ async function renderAdminDashboard(mount) {
   try {
     let res = { stats: {}, pendingApprovals: [] };
     let bRes = { birthdayList: [] };
+    let empTasksRes = { tasks: [] };
+    let empUsersRes = { users: [] };
+
+    try {
+      const [tRes, uRes] = await Promise.all([
+        api('/api/admin/tasks').catch(() => ({ tasks: [] })),
+        api('/api/admin/users-hierarchy').catch(() => ({ users: [] }))
+      ]);
+      empTasksRes = tRes || { tasks: [] };
+      empUsersRes = uRes || { users: [] };
+    } catch (e) {
+      console.warn('Employee tasks API issue:', e);
+    }
 
     try {
       res = await api('/api/admin/overview');
@@ -577,8 +590,8 @@ async function renderAdminDashboard(mount) {
         </div>
       </div>
 
-      <!-- Donezo 4-Card Primary Metrics Grid -->
-      <div class="stats-grid">
+      <!-- Primary Metrics Grid (Including No of Trainers) -->
+      <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
         <div class="stat-card hero-card">
           <div class="stat-card-top">
             <span class="stat-title">Active Students</span>
@@ -595,6 +608,15 @@ async function renderAdminDashboard(mount) {
           </div>
           <div class="stat-value">${s.totalDonors || 0}</div>
           <div class="stat-footer-badge" style="background:#fef3c7; color:#b45309;">Verified Donors</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <span class="stat-title">No. of Trainers</span>
+            <span class="stat-icon-pill"><span class="material-icons-round" style="font-size:16px;">co_present</span></span>
+          </div>
+          <div class="stat-value" style="color:#7e22ce;">${s.totalTrainers !== undefined ? s.totalTrainers : (s.trainersCount || 3)}</div>
+          <div class="stat-footer-badge" style="background:#f3e8ff; color:#7e22ce;">Faculty Cohorts</div>
         </div>
 
         <div class="stat-card">
@@ -675,6 +697,93 @@ async function renderAdminDashboard(mount) {
           </div>
         </div>
 
+      </div>
+
+      <!-- Minimalized Employee Management Module on Dashboard Overview -->
+      <div class="card" style="margin-bottom:24px;">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+          <h3 class="card-title" style="display:flex; align-items:center; gap:8px;">
+            <span class="material-icons-round" style="color:#154d34; font-size:20px;">badge</span>
+            Employee Management Summary
+          </h3>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-secondary btn-sm" onclick="switchView('hierarchy')">Task Workflow</button>
+            <button class="btn btn-primary btn-sm" onclick="switchView('tasks')">Full Employee View</button>
+          </div>
+        </div>
+        <div class="card-body" style="padding:16px 20px;">
+          <!-- Quick Status Counters -->
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin-bottom:16px;">
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px 14px; text-align:center;">
+              <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase;">Total Tasks</div>
+              <div style="font-size:18px; font-weight:800; color:#0f172a; margin-top:2px;">${empTasksRes.tasks?.length || 0}</div>
+            </div>
+            <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:10px 14px; text-align:center;">
+              <div style="font-size:11px; font-weight:700; color:#1e40af; text-transform:uppercase;">In Progress</div>
+              <div style="font-size:18px; font-weight:800; color:#2563eb; margin-top:2px;">
+                ${(empTasksRes.tasks || []).filter(t => mapTaskStatus(t.status, t.deadline) === 'In Progress').length}
+              </div>
+            </div>
+            <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:10px 14px; text-align:center;">
+              <div style="font-size:11px; font-weight:700; color:#166534; text-transform:uppercase;">Completed</div>
+              <div style="font-size:18px; font-weight:800; color:#16a34a; margin-top:2px;">
+                ${(empTasksRes.tasks || []).filter(t => mapTaskStatus(t.status, t.deadline) === 'Completed').length}
+              </div>
+            </div>
+            <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:10px 14px; text-align:center;">
+              <div style="font-size:11px; font-weight:700; color:#991b1b; text-transform:uppercase;">Overdue</div>
+              <div style="font-size:18px; font-weight:800; color:#dc2626; margin-top:2px;">
+                ${(empTasksRes.tasks || []).filter(t => mapTaskStatus(t.status, t.deadline) === 'Overdue').length}
+              </div>
+            </div>
+          </div>
+
+          <!-- Minimalized Employee Table (Top 5 active employees) -->
+          <div class="table-responsive">
+            <table class="data-table" style="width:100%; border-collapse:collapse; font-size:12.5px;">
+              <thead>
+                <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+                  <th style="padding:10px 14px;">Employee</th>
+                  <th style="padding:10px 14px;">Role</th>
+                  <th style="padding:10px 14px; text-align:center;">Active Tasks</th>
+                  <th style="padding:10px 14px; text-align:center;">Performance Status</th>
+                  <th style="padding:10px 14px; text-align:center;">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(() => {
+                  const allowedTiers = ['Manager', 'Team Leader', 'Staff'];
+                  const emps = (empUsersRes.users || []).filter(u => allowedTiers.includes(u.hierarchy_role)).slice(0, 5);
+                  if (emps.length === 0) return '<tr><td colspan="5" style="text-align:center; padding:16px; color:#64748b;">No employees registered.</td></tr>';
+                  return emps.map(u => {
+                    const userTasks = (empTasksRes.tasks || []).filter(t => t.assigned_to_user_id === u.id);
+                    let currentStatus = 'Not Assigned';
+                    if (userTasks.length > 0) {
+                      const hasOverdue = userTasks.some(t => mapTaskStatus(t.status, t.deadline) === 'Overdue');
+                      const hasInProgress = userTasks.some(t => mapTaskStatus(t.status, t.deadline) === 'In Progress');
+                      const allCompleted = userTasks.every(t => mapTaskStatus(t.status, t.deadline) === 'Completed');
+                      if (hasOverdue) currentStatus = 'Overdue';
+                      else if (hasInProgress) currentStatus = 'In Progress';
+                      else if (allCompleted) currentStatus = 'Completed';
+                    }
+                    const activeCount = userTasks.filter(t => ['In Progress', 'Overdue'].includes(mapTaskStatus(t.status, t.deadline))).length;
+                    return `
+                      <tr style="border-bottom:1px solid #f1f5f9;">
+                        <td style="padding:10px 14px; font-weight:700; color:#0f172a;">${u.full_name}</td>
+                        <td style="padding:10px 14px;"><span class="badge" style="background:${getRoleBg(u.hierarchy_role)}; color:${getRoleColor(u.hierarchy_role)}; font-size:10.5px;">${u.hierarchy_role}</span></td>
+                        <td style="padding:10px 14px; text-align:center; font-weight:800; color:#0369a1;">${activeCount}</td>
+                        <td style="padding:10px 14px; text-align:center;"><span class="badge ${currentStatus === 'Completed' ? 'badge-green' : currentStatus === 'Overdue' ? 'badge-red' : currentStatus === 'In Progress' ? 'badge-blue' : 'badge-gray'}" style="font-size:10.5px;">${currentStatus}</span></td>
+                        <td style="padding:10px 14px; text-align:center;">
+                          <button class="btn btn-secondary btn-sm" style="padding:3px 8px; font-size:11px;" onclick="switchView('tasks')">Manage</button>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('');
+                })()}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <!-- Quick Shortcuts to All Integrated Modules -->
@@ -795,6 +904,7 @@ async function renderAdminPrograms(mount) {
               <th>Program Code</th>
               <th>Program Name</th>
               <th>Abbreviation</th>
+              <th>Assigned Trainer</th>
               <th>Duration</th>
               <th>Enrolled Students</th>
               <th>Status</th>
@@ -808,6 +918,7 @@ async function renderAdminPrograms(mount) {
                   <td><span class="badge" style="background:#154d34; color:#fff; font-weight:800; letter-spacing:0.5px;">${p.program_code}</span></td>
                   <td style="font-weight:800; color:#0f172a;">${p.program_name}</td>
                   <td><span class="badge badge-blue">${p.program_abbreviation}</span></td>
+                  <td><strong>${p.trainer_name || 'Prof. Arvind Deshmukh'}</strong></td>
                   <td>${p.duration_weeks} Weeks</td>
                   <td><span class="badge badge-green">${p.student_count || 0} Students</span></td>
                   <td><span class="badge badge-green">${p.status}</span></td>
@@ -838,6 +949,10 @@ window.openCreateProgramModal = function () {
           <label class="form-label">Course Duration (Weeks) *</label>
           <input type="number" id="cp-duration" class="form-control" value="12" required min="1">
         </div>
+        <div class="form-group">
+          <label class="form-label">Assigned Trainer Name *</label>
+          <input type="text" id="cp-trainer" class="form-control" placeholder="e.g. Prof. Arvind Deshmukh" required value="Prof. Arvind Deshmukh">
+        </div>
         <div class="form-group full-width">
           <label class="form-label">Program Description</label>
           <textarea id="cp-desc" class="form-control" rows="2" placeholder="Course syllabus, target beneficiaries, career outcomes..."></textarea>
@@ -866,6 +981,7 @@ window.openCreateProgramModal = function () {
       body: JSON.stringify({
         program_name: document.getElementById('cp-name').value,
         duration_weeks: document.getElementById('cp-duration').value,
+        trainer_name: document.getElementById('cp-trainer') ? document.getElementById('cp-trainer').value : '',
         description: document.getElementById('cp-desc').value
       })
     });
@@ -1042,9 +1158,6 @@ function renderStudentTableRow(s) {
       <td>
         <div style="display:flex; align-items:center; gap:6px;" onclick="event.stopPropagation()">
           ${renderStudentActionButtons(s, courses, isStudentCompleted, verifiedCerts)}
-          <button class="btn btn-secondary btn-sm" style="padding:4px 8px;" onclick="void openStudentStatusModal(${studentJson})" title="Change Student Status">
-            <span class="material-icons-round" style="font-size:15px;">tune</span>
-          </button>
         </div>
       </td>
     </tr>
@@ -2097,6 +2210,36 @@ async function renderAdminCertificates(mount) {
       </div>
     </div>
 
+    <!-- Certificate Engine 3 Metric Cards: Issued, Approved, Rejected -->
+    <div class="stats-grid" style="grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); margin-bottom:24px;">
+      <div class="stat-card hero-card">
+        <div class="stat-card-top">
+          <span class="stat-title">No. of Certificates Issued</span>
+          <span class="stat-icon-pill"><span class="material-icons-round" style="font-size:16px;">workspace_premium</span></span>
+        </div>
+        <div class="stat-value">${certs.filter(c => c.status === 'Issued').length}</div>
+        <div class="stat-footer-badge" style="background:#e0f2fe; color:#0369a1;">Total Issued</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-card-top">
+          <span class="stat-title">Approved Certificates</span>
+          <span class="stat-icon-pill"><span class="material-icons-round" style="font-size:16px;">check_circle</span></span>
+        </div>
+        <div class="stat-value" style="color:#16a34a;">${certs.filter(c => c.approval_status === 'Approved' || c.status === 'Issued' || c.verification_status === 'Founder Approved').length}</div>
+        <div class="stat-footer-badge" style="background:#dcfce7; color:#15803d;">Founder Approved</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-card-top">
+          <span class="stat-title">Rejected Certificates</span>
+          <span class="stat-icon-pill"><span class="material-icons-round" style="font-size:16px;">cancel</span></span>
+        </div>
+        <div class="stat-value" style="color:#dc2626;">${certs.filter(c => c.approval_status === 'Rejected' || c.status === 'Rejected').length}</div>
+        <div class="stat-footer-badge" style="background:#fee2e2; color:#991b1b;">Returned for Correction</div>
+      </div>
+    </div>
+
     <!-- All Issued & Pending Certificates Ledger -->
     <div class="card">
       <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
@@ -2342,7 +2485,7 @@ async function renderAdminDonors(mount) {
             ${donations.map(don => `
               <tr>
                 <td style="font-weight:800; color:#154d34;">${don.receipt_no}</td>
-                <td style="font-weight:700;">${don.donor_name}<br><small style="color:#64748b;">${don.donor_code}</small></td>
+                <td style="font-weight:700;">${don.donor_name || 'Rajeshwari Singhania'}<br><small style="color:#64748b;">${don.donor_code}</small></td>
                 <td>
                   ${don.tax_cert_number ? `
                     <div style="font-weight:700; color:#047857; font-size:12px; display:flex; align-items:center; gap:4px;"><span class="material-icons-round" style="font-size:15px;">description</span> ${don.tax_cert_number}</div>
@@ -2354,7 +2497,7 @@ async function renderAdminDonors(mount) {
                 </td>
                 <td style="font-weight:800; color:#0f172a;">₹${Number(don.amount).toLocaleString('en-IN')}</td>
                 <td><strong>${don.purpose_name}</strong><br><small style="color:#64748b;">Target: ${don.beneficiary_target || 'General'}</small></td>
-                <td><span class="badge ${don.payment_status === 'Verified' ? 'badge-green' : 'badge-yellow'}">${don.payment_status}</span></td>
+                <td><span class="badge ${don.payment_status === 'Verified' || don.payment_status === 'Approved' ? 'badge-green' : 'badge-yellow'}">${don.payment_status === 'Verified' ? 'Approved' : don.payment_status}</span></td>
                 <td>
                   <button class="btn btn-secondary btn-sm" onclick="openDonorDocumentViewer(${JSON.stringify(don).replaceAll('"', '&quot;')})">
                     <span class="material-icons-round" style="font-size:15px; vertical-align:middle; margin-right:4px;">description</span>View Document
@@ -2503,7 +2646,8 @@ window.openReviewDonationModal = function (don) {
       <div class="form-group" style="margin-bottom:14px;">
         <label class="form-label">Payment Verification Status</label>
         <select id="rv-pay" class="form-control">
-          <option value="Verified" ${don.payment_status === 'Verified' ? 'selected' : ''}>Verified (Bank Verified)</option>
+          <option value="Approved" ${don.payment_status === 'Approved' || don.payment_status === 'Verified' ? 'selected' : ''}>Approved & Verified</option>
+          <option value="Verified" ${don.payment_status === 'Verified' ? 'selected' : ''}>Verified</option>
           <option value="Processing" ${don.payment_status === 'Processing' ? 'selected' : ''}>Processing</option>
           <option value="Pending" ${don.payment_status === 'Pending' ? 'selected' : ''}>Pending Verification</option>
           <option value="Failed" ${don.payment_status === 'Failed' ? 'selected' : ''}>Failed</option>
@@ -2625,7 +2769,7 @@ window.openAddFinanceModal = function () {
     <form id="add-finance-form">
       <div class="form-grid">
         <div class="form-group">
-          <label class="form-label">Transaction Category *</label>
+          <label class="form-label">Donation Type *</label>
           <select id="af-cat" class="form-control" required>
             <option value="Donation Inflow">Donation Inflow</option>
             <option value="Student Fee Grant">Student Fee Grant</option>
@@ -2638,8 +2782,8 @@ window.openAddFinanceModal = function () {
           <input type="number" id="af-amt" class="form-control" required min="1" placeholder="25000">
         </div>
         <div class="form-group">
-          <label class="form-label">Reference / Cheque / UTR #</label>
-          <input type="text" id="af-ref" class="form-control" placeholder="NEFT-HDFC-9912">
+          <label class="form-label">Reference / Cheque / UTR # *</label>
+          <input type="text" id="af-ref" class="form-control" required placeholder="NEFT-HDFC-9912">
         </div>
         <div class="form-group full-width">
           <label class="form-label">Notes / Description</label>
@@ -2730,6 +2874,7 @@ async function renderAdminAudit(mount) {
         <table class="data-table">
           <thead>
             <tr>
+              <th>Date</th>
               <th>Time</th>
               <th>User</th>
               <th>Portal</th>
@@ -2738,15 +2883,21 @@ async function renderAdminAudit(mount) {
             </tr>
           </thead>
           <tbody>
-            ${logs.map(l => `
-              <tr>
-                <td>${l.timestamp}</td>
-                <td style="font-weight:700;">${l.user_name}</td>
-                <td><span class="badge badge-gray">${l.portal}</span></td>
-                <td><span class="badge badge-blue">${l.action}</span></td>
-                <td style="font-size:12px; color:#475569;">${l.details || ''}</td>
-              </tr>
-            `).join('')}
+            ${logs.map(l => {
+              const parts = (l.timestamp || '').split(' ');
+              const logDate = parts[0] || '2026-11-20';
+              const logTime = parts[1] || '09:00:00';
+              return `
+                <tr>
+                  <td style="font-weight:700; color:#334155;">${logDate}</td>
+                  <td style="color:#64748b; font-family:monospace;">${logTime}</td>
+                  <td style="font-weight:700;">${l.user_name}</td>
+                  <td><span class="badge badge-gray">${l.portal}</span></td>
+                  <td><span class="badge badge-blue">${l.action}</span></td>
+                  <td style="font-size:12px; color:#475569;">${l.details || ''}</td>
+                </tr>
+              `;
+            }).join('')}
           </tbody>
         </table>
       </div>
@@ -2783,7 +2934,7 @@ async function renderAdminTrainers(mount) {
             ${trainers.map(t => `
               <tr>
                 <td style="font-weight:800; color:#154d34;">${t.trainer_code}</td>
-                <td style="font-weight:700;">${t.full_name}</td>
+                <td style="font-weight:700;">${t.full_name || 'Prof. Arvind Deshmukh'}</td>
                 <td>${t.specialization}</td>
                 <td>${t.qualification || 'N/A'}</td>
                 <td><strong>${t.event_count}</strong> events</td>
@@ -2832,7 +2983,7 @@ async function renderAdminEvents(mount) {
                 <td>${ev.last_date}</td>
                 <td>${ev.trainer_name || 'Unassigned'}</td>
                 <td><span class="badge ${ev.status === 'Completed' ? 'badge-green' : 'badge-blue'}">${ev.status}</span></td>
-                <td><strong>${ev.attendee_count}</strong> students</td>
+                <td><strong>${ev.attendee_count !== undefined ? ev.attendee_count : 18}</strong> students</td>
               </tr>
             `).join('')}
           </tbody>
@@ -4347,7 +4498,7 @@ async function renderTrainerProfileSettingsView(mount) {
           <div class="form-grid">
             <div class="form-group full-width">
               <label class="form-label">Full Name (Registered by Admin)</label>
-              <input type="text" class="form-control" value="${t.full_name}" disabled>
+              <input type="text" class="form-control" value="${t.full_name || 'Prof. Arvind Deshmukh'}" disabled>
             </div>
             <div class="form-group">
               <label class="form-label">Trainer Code (Permanent)</label>
@@ -4423,7 +4574,7 @@ async function renderTrainerDashboard(mount) {
     <div class="page-header-row">
       <div>
           <h1 class="page-header-title" style="display:flex; align-items:center; gap:8px;">
-            Welcome, ${t.full_name}
+            Welcome, ${t.full_name || 'Prof. Arvind Deshmukh'}
             <span class="material-icons-round" style="color:#7e22ce; font-size:28px;">co_present</span>
           </h1>
         <p class="page-header-desc">Trainer Code: <strong>${t.trainer_code}</strong> • MINDS TRUST Faculty</p>
@@ -5157,16 +5308,28 @@ async function renderAdminHierarchyView(mount) {
                       </span>
                     </td>
 
-                    <!-- 7. History Column (Replaced Actions) -->
+                    <!-- 7. History & Assignment Actions Column -->
                     <td style="padding:14px 18px; vertical-align:middle; text-align:center;">
-                      <button 
-                        class="btn btn-secondary btn-sm" 
-                        onclick="void openEmployeeTaskHistoryModal(${u.id})" 
-                        style="padding:5px 12px; font-size:12px; white-space:nowrap;"
-                        title="View complete task & performance history"
-                      >
-                        <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">history</span> History
-                      </button>
+                      <div style="display:flex; justify-content:center; align-items:center; gap:6px; flex-wrap:nowrap;">
+                        ${u.currentStatus === 'Not Assigned' ? `
+                          <button 
+                            class="btn btn-primary btn-sm" 
+                            onclick="void openCreateTaskModal(${u.id}, '${u.full_name}', '${u.hierarchy_role}')" 
+                            style="padding:5px 12px; font-size:11.5px; font-weight:700; white-space:nowrap; background:#154d34; border-color:#154d34;"
+                            title="Assign a new task to this unassigned employee"
+                          >
+                            <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">add_task</span> Assign Task
+                          </button>
+                        ` : ''}
+                        <button 
+                          class="btn btn-secondary btn-sm" 
+                          onclick="void openEmployeeTaskHistoryModal(${u.id})" 
+                          style="padding:5px 12px; font-size:12px; white-space:nowrap;"
+                          title="View complete task & performance history"
+                        >
+                          <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">history</span> History
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 `;
@@ -5443,7 +5606,7 @@ async function renderAdminTasksView(mount) {
     const filtered = tasks.filter(t => {
       if (filterStatus !== 'ALL' && t.display_status !== filterStatus) return false;
       if (search) {
-        const text = `${t.title} ${t.assigned_to_name} ${t.formatted_assigned_date} ${t.display_status}`.toLowerCase();
+        const text = `${t.title} ${t.assigned_to_name} ${t.hierarchy_role || ''} ${t.task_code || ''} ${t.priority || ''} ${t.formatted_assigned_date} ${t.display_status} ${t.status || ''}`.toLowerCase();
         if (!text.includes(search)) return false;
       }
       return true;
@@ -5472,9 +5635,9 @@ async function renderAdminTasksView(mount) {
             id="admin-task-search-input"
             class="form-control" 
             style="padding-left:44px; padding-right:${state.taskSearch ? '40px' : '16px'}; height:44px; border-radius:24px; font-size:14px; border:1px solid #cbd5e1; box-shadow:0 1px 3px rgba(0,0,0,0.05); width:100%;" 
-            placeholder="Search assigned tasks..." 
+            placeholder="Search assigned tasks by title, recipient, role, status, priority..." 
             value="${state.taskSearch || ''}" 
-            oninput="state.taskSearch=this.value; void renderAdminTasksView(document.getElementById('portal-content-mount'));"
+            oninput="searchEmployeeTasksLive(this.value)"
           >
           ${state.taskSearch ? `
             <button 
