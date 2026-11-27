@@ -1555,10 +1555,35 @@
   }
 
   function handleAdminEvents(ctx) {
+    if (ctx.method === 'POST') {
+      const b = ctx.body || {};
+      const count = (ctx.db.events || []).length + 1;
+      const eventCode = `EVT-2026-${String(count).padStart(2, '0')}`;
+      const trainer = (ctx.db.trainers || []).find(t => t.id === Number(b.trainer_id)) || (ctx.db.trainers || [])[0] || {};
+      const newEv = {
+        id: count,
+        event_code: eventCode,
+        title: b.title || 'New Event Schedule',
+        description: b.description || '',
+        start_date: b.start_date || new Date().toISOString().slice(0, 10),
+        last_date: b.last_date || new Date().toISOString().slice(0, 10),
+        trainer_id: Number(b.trainer_id) || trainer.id || 1,
+        trainer_name: trainer.full_name || 'Prof. Arvind Deshmukh',
+        venue: b.venue || 'Main Campus Auditorium',
+        status: b.status || 'Scheduled',
+        auto_cert_processed: 0,
+        created_at: new Date().toISOString()
+      };
+      ctx.db.events = ctx.db.events || [];
+      ctx.db.events.unshift(newEv);
+      MockDB.save(ctx.db);
+      return { message: 'Event scheduled successfully', event_code: eventCode, event: newEv };
+    }
+
     const events = (ctx.db.events || []).map(ev => {
       const trainer = (ctx.db.trainers || []).find(t => t.id === ev.trainer_id) || {};
       const user = trainer.user_id ? (ctx.db.users || []).find(u => u.id === trainer.user_id) : null;
-      const trainerName = trainer.full_name || user?.full_name || 'Unassigned';
+      const trainerName = ev.trainer_name || trainer.full_name || user?.full_name || 'Unassigned';
       const isCompleted = ev.status === 'Completed';
       const joinedStudents = (ctx.db.students || []).filter(s => s.student_status === 'Joined' || s.student_status === 'Enrolled');
       const completedStudents = (ctx.db.students || []).filter(s => s.academic_status === 'Completed');
@@ -1596,6 +1621,7 @@
     'GET:/api/admin/donations': handleAdminDonations,
     'GET:/api/admin/trainers': handleAdminTrainers,
     'GET:/api/admin/events': handleAdminEvents,
+    'POST:/api/admin/events': handleAdminEvents,
     'GET:/api/admin/email-logs': ctx => ({ logs: ctx.db.email_logs || [] }),
     'GET:/api/admin/audit-logs': ctx => ({ logs: ctx.db.audit_logs || [] }),
     'GET:/api/finance/records': handleFinanceRecords,

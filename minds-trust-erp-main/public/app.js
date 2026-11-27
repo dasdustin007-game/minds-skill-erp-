@@ -3080,6 +3080,11 @@ async function renderAdminEvents(mount) {
         <h1 class="page-header-title">Event & Course Schedules</h1>
         <p class="page-header-desc">Events trigger automatic certificate issuance upon their last_date.</p>
       </div>
+      <div class="page-actions" style="display:flex; gap:10px;">
+        <button class="btn btn-primary" onclick="void openCreateEventModal()">
+          <span class="material-icons-round" style="font-size:18px; vertical-align:middle; margin-right:4px;">add_circle</span> Create Event
+        </button>
+      </div>
     </div>
 
     <div class="card">
@@ -3106,17 +3111,15 @@ async function renderAdminEvents(mount) {
                 <td>${ev.trainer_name || 'Unassigned'}</td>
                 <td><span class="badge ${ev.status === 'Completed' ? 'badge-green' : 'badge-blue'}">${ev.status}</span></td>
                 <td>
-                    ${ev.status === 'Completed' ? `
-                      <span class="badge badge-green" style="font-size:11px; padding:4px 9px;">
-                        <span class="material-icons-round" style="font-size:13px; vertical-align:middle; margin-right:2px;">check_circle</span>
-                        <strong>${ev.attendee_count || 12}</strong> Completed
-                      </span>
-                    ` : `
-                      <span class="badge badge-blue" style="font-size:11px; padding:4px 9px;">
-                        <span class="material-icons-round" style="font-size:13px; vertical-align:middle; margin-right:2px;">how_to_reg</span>
-                        <strong>${ev.attendee_count || 18}</strong> Enrolled
-                      </span>
-                    `}
+                    <button 
+                      class="btn btn-sm" 
+                      onclick="void openEventAttendanceCohortModal(${JSON.stringify(ev).replaceAll('"', '&quot;')})" 
+                      style="background:${ev.status === 'Completed' ? '#f0fdf4' : '#eff6ff'}; color:${ev.status === 'Completed' ? '#166534' : '#1e40af'}; border:1px solid ${ev.status === 'Completed' ? '#bbf7d0' : '#bfdbfe'}; font-weight:800; padding:4px 10px; border-radius:14px; cursor:pointer;"
+                      title="Click to view enrolled & completed students for this event"
+                    >
+                      <span class="material-icons-round" style="font-size:14px; vertical-align:middle; margin-right:2px;">${ev.status === 'Completed' ? 'verified' : 'group'}</span>
+                      <strong>${ev.attendee_count || (ev.status === 'Completed' ? 12 : 18)}</strong> ${ev.status === 'Completed' ? 'Completed' : 'Enrolled'}
+                    </button>
                   </td>
               </tr>
             `).join('')}
@@ -5711,6 +5714,10 @@ function getTaskStatusBadgeClass(s) {
 }
 
 // 8.2 Admin Task Management & Minimal Workflow View
+window.searchEmployeeTasksLive = function(val) {
+  state.taskSearch = val;
+  filterModuleTable('admin-tasks-data-table', val);
+};
 async function renderAdminTasksView(mount) {
   mount.innerHTML = '<div style="text-align:center; padding:40px; color:#64748b;">Loading Employee Management...</div>';
   try {
@@ -5835,7 +5842,7 @@ async function renderAdminTasksView(mount) {
       <!-- BOTTOM: 6-Column Task Table -->
       <div class="card">
         <div class="table-responsive">
-          <table class="data-table" style="width:100%; border-collapse:collapse;">
+          <table class="data-table" id="admin-tasks-data-table" style="width:100%; border-collapse:collapse;">
             <thead>
               <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0;">
                 <th style="width:70px; padding:14px 18px; text-align:center;">S.No</th>
@@ -6993,4 +7000,186 @@ window.approveDonationDocument = async function(donationId) {
   } catch (err) {
     showToast('Failed to approve document: ' + err.message);
   }
+};
+
+
+// -------------------------------------------------------------
+// EVENT CREATION & ATTENDANCE COHORT MODALS
+// -------------------------------------------------------------
+
+// Modal: Create New Event
+window.openCreateEventModal = async function() {
+  let trainers = [];
+  try {
+    const tRes = await api('/api/admin/trainers');
+    trainers = tRes.trainers || [];
+  } catch(e) {}
+
+  showModal('Schedule & Create Event', `
+    <form id="create-event-form">
+      <div class="form-grid">
+        <div class="form-group full-width">
+          <label class="form-label">Event / Course Title *</label>
+          <input type="text" id="ce-title" class="form-control" required placeholder="e.g. Advanced AI Literacy & Python Bootcamp 2026">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Assigned Trainer *</label>
+          <select id="ce-trainer" class="form-control" required>
+            ${trainers.map(t => `
+              <option value="${t.id}">${t.full_name} (${t.trainer_code})</option>
+            `).join('')}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Event Status</label>
+          <select id="ce-status" class="form-control">
+            <option value="Scheduled">Scheduled</option>
+            <option value="Ongoing">Ongoing</option>
+            <option value="Completed">Completed</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Start Date *</label>
+          <input type="date" id="ce-start" class="form-control" required value="${new Date().toISOString().slice(0, 10)}">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">End Date (Certificate Trigger Date) *</label>
+          <input type="date" id="ce-end" class="form-control" required value="${new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10)}">
+        </div>
+
+        <div class="form-group full-width">
+          <label class="form-label">Venue / Training Facility</label>
+          <input type="text" id="ce-venue" class="form-control" placeholder="e.g. MINDS Main Campus Auditorium / Online Lab" value="MINDS Main Campus Auditorium">
+        </div>
+
+        <div class="form-group full-width">
+          <label class="form-label">Event Description & Curriculum Objectives</label>
+          <textarea id="ce-desc" class="form-control" rows="2" placeholder="Course outline, targeted beneficiaries, certifications..."></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="padding-top:20px; margin:20px -24px -24px;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Schedule Event</button>
+      </div>
+    </form>
+  `);
+
+  document.getElementById('create-event-form').onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await api('/api/admin/events', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: document.getElementById('ce-title').value,
+          trainer_id: document.getElementById('ce-trainer').value,
+          status: document.getElementById('ce-status').value,
+          start_date: document.getElementById('ce-start').value,
+          last_date: document.getElementById('ce-end').value,
+          venue: document.getElementById('ce-venue').value,
+          description: document.getElementById('ce-desc').value
+        })
+      });
+      closeModal();
+      showToast(res.message || 'Event scheduled successfully!');
+      void renderAdminEvents(document.getElementById('portal-content-mount'));
+    } catch(err) {
+      showToast('Error scheduling event: ' + err.message);
+    }
+  };
+};
+
+// Modal: Event Attendance Cohort (View Enrolled & Completed Students)
+window.openEventAttendanceCohortModal = async function(ev) {
+  let students = [];
+  try {
+    const sRes = await api('/api/admin/students');
+    students = sRes.students || [];
+  } catch(e) {}
+
+  const isEventCompleted = ev.status === 'Completed';
+  const enrolledStudents = students.filter(s => s.student_status === 'Joined' || s.student_status === 'Enrolled');
+  const completedStudents = students.filter(s => s.academic_status === 'Completed');
+
+  showModal(`Event Attendance & Cohort: ${ev.title} (${ev.event_code})`, `
+    <div style="font-family:'Plus Jakarta Sans', sans-serif;">
+      <!-- Event Overview Banner -->
+      <div style="background:linear-gradient(135deg, #154d34, #1e704a); border-radius:12px; padding:16px 20px; color:#fff; margin-bottom:18px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div>
+            <div style="font-size:16px; font-weight:800;">${ev.title}</div>
+            <div style="font-size:12px; opacity:0.9; margin-top:4px;">
+              Code: <strong>${ev.event_code}</strong> &bull; Trainer: <strong>${ev.trainer_name || 'Prof. Arvind Deshmukh'}</strong> &bull; Dates: <strong>${ev.start_date} to ${ev.last_date}</strong>
+            </div>
+          </div>
+          <div>
+            <span class="badge ${isEventCompleted ? 'badge-green' : 'badge-blue'}" style="font-size:12px; font-weight:800; background:#fff; color:${isEventCompleted ? '#166534' : '#0369a1'}; padding:6px 12px;">
+              ${ev.status}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Metrics Grid -->
+      <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; margin-bottom:18px;">
+        <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:12px; text-align:center;">
+          <div style="font-size:11px; font-weight:700; color:#1e40af; text-transform:uppercase;">Enrolled Students</div>
+          <div style="font-size:24px; font-weight:900; color:#2563eb; margin-top:2px;">${enrolledStudents.length}</div>
+          <div style="font-size:11px; color:#64748b; margin-top:2px;">Participating in Cohort</div>
+        </div>
+        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:12px; text-align:center;">
+          <div style="font-size:11px; font-weight:700; color:#166534; text-transform:uppercase;">Completed Students</div>
+          <div style="font-size:24px; font-weight:900; color:#16a34a; margin-top:2px;">${completedStudents.length}</div>
+          <div style="font-size:11px; color:#64748b; margin-top:2px;">Finished Course & Certified</div>
+        </div>
+      </div>
+
+      <!-- Cohort Students Roster -->
+      <div style="margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+        <h4 style="font-size:13.5px; font-weight:800; color:#0f172a; margin:0;">
+          ${isEventCompleted ? 'Certified & Completed Students' : 'Enrolled Students Roster'}
+        </h4>
+        <span style="font-size:11.5px; color:#64748b;">Showing active cohort learners</span>
+      </div>
+
+      <div class="table-responsive" style="max-height:360px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:10px;">
+        <table class="data-table" style="width:100%; border-collapse:collapse; font-size:12.5px;">
+          <thead>
+            <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0; position:sticky; top:0; z-index:1;">
+              <th style="padding:10px 14px;">S.No</th>
+              <th style="padding:10px 14px;">Student Name</th>
+              <th style="padding:10px 14px;">Code</th>
+              <th style="padding:10px 14px;">Contact</th>
+              <th style="padding:10px 14px; text-align:center;">Enrollment Status</th>
+              <th style="padding:10px 14px; text-align:center;">Academic Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(isEventCompleted ? completedStudents : enrolledStudents).map((s, idx) => `
+              <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="padding:10px 14px; color:#64748b; text-align:center;">${idx + 1}</td>
+                <td style="padding:10px 14px; font-weight:800; color:#0f172a;">${s.full_name}</td>
+                <td style="padding:10px 14px;"><span class="badge" style="background:#154d34; color:#fff; font-weight:800;">${s.student_code}</span></td>
+                <td style="padding:10px 14px; color:#475569; font-size:11.5px;">${s.email}</td>
+                <td style="padding:10px 14px; text-align:center;">
+                  <span class="badge ${getStudentStatusBadgeClass(s.student_status)}">${s.student_status || 'Joined'}</span>
+                </td>
+                <td style="padding:10px 14px; text-align:center;">
+                  <span class="badge ${s.academic_status === 'Completed' ? 'badge-green' : 'badge-blue'}">${s.academic_status || 'In Progress'}</span>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:18px; text-align:right;">
+        <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+      </div>
+    </div>
+  `);
 };
