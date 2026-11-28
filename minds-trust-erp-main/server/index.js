@@ -268,6 +268,51 @@ app.post('/api/auth/register-student', (req, res) => {
   res.json({ message: 'Student account created successfully! You can now log in.', student_code: studentCode });
 });
 
+
+app.post('/api/auth/register-trainer', (req, res) => {
+  const { full_name, email, phone, specialization, qualification, dob } = req.body;
+  if (!full_name || !email || !phone || !specialization) {
+    return res.status(400).json({ error: 'Full name, email, mobile number, and specialization are required.' });
+  }
+
+  const cleanPhone = String(phone).replace(/\D/g, '');
+  if (cleanPhone.length !== 10) {
+    return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number.' });
+  }
+
+  const cleanEmail = String(email).trim().toLowerCase();
+
+  const existing = db.prepare('SELECT id FROM users WHERE LOWER(email) = LOWER(?) OR phone = ?').get(cleanEmail, cleanPhone);
+  if (existing) {
+    return res.status(400).json({ error: 'A trainer account with this Email or Mobile Number already exists.' });
+  }
+
+  const count = db.prepare('SELECT COUNT(*) as c FROM trainers').get().c + 1;
+  const code = `TRN2026${String(count).padStart(4, '0')}`;
+  const autoUserId = code.toLowerCase();
+  const defaultPassword = 'trainer123';
+  const hash = bcrypt.hashSync(defaultPassword, 10);
+
+  const u = db.prepare(`
+    INSERT INTO users (user_id, full_name, email, phone, password_hash, portal_type, role, status, dob)
+    VALUES (?, ?, ?, ?, ?, 'TRAINER', 'Trainer', 'Active', ?)
+  `).run(autoUserId, full_name.trim(), cleanEmail, cleanPhone, hash, dob || null);
+
+  db.prepare(`
+    INSERT INTO trainers (user_id, trainer_code, specialization, qualification, dob)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(u.lastInsertRowid, code, specialization.trim(), qualification || 'Senior Faculty', dob || null);
+
+  logAudit(u.lastInsertRowid, full_name, 'TRAINER', 'Registration', `Trainer registered with auto ID: ${code}`);
+
+  res.json({
+    success: true,
+    message: `Trainer Registration Successful! Your Trainer ID is ${code}. Login with User ID: ${autoUserId}`,
+    trainer_code: code,
+    user_id: autoUserId
+  });
+});
+
 app.post('/api/auth/register-donor', (req, res) => {
   const { user_id, full_name, email, phone, password, address, pan_number, donor_category, dob } = req.body;
   if (!user_id || !full_name || !email || !phone || !password) {
@@ -921,7 +966,7 @@ app.get('/api/certificates/:id', (req, res) => {
 });
 
 app.get('/api/admin/donors', requireAuth('ADMIN'), (req, res) => {
-  const search = req.query.search ? `% ${ req.query.search.trim() } % ` : null;
+  const search = req.query.search ? `%${req.query.search.trim()}%` : null;
   let query = `
     SELECT d.*,
     (SELECT COUNT(*) FROM donations WHERE donor_id = d.id) as donation_count,

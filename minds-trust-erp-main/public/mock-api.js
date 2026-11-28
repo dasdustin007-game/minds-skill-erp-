@@ -143,17 +143,39 @@
   }
 
   function handleRegisterStudent(ctx) {
-    const { full_name, user_id, email, phone, enrolled_program, dob } = ctx.body;
+    const { full_name, email, phone, enrolled_program, dob, password } = ctx.body;
+    if (!full_name || !email || !phone) {
+      return { error: 'Full name, email, and mobile number are required.' };
+    }
+
+    const cleanPhone = String(phone).replace(/\D/g, '');
+    if (cleanPhone.length !== 10) {
+      return { error: 'Please enter a valid 10-digit mobile number.' };
+    }
+
+    const cleanEmail = String(email).trim().toLowerCase();
+
+    // Check duplicate student
+    const existing = (ctx.db.users || []).find(u => 
+      (u.email && u.email.toLowerCase() === cleanEmail) || 
+      (u.phone && String(u.phone).replace(/\D/g, '') === cleanPhone)
+    );
+    if (existing) {
+      return { error: 'A student registration with this Email or Mobile Number already exists.' };
+    }
+
     const newUserId = (ctx.db.users || []).length + 1;
     const newStudentId = (ctx.db.students || []).length + 1;
-    const code = `STU-2026-${String(newStudentId).padStart(3, '0')}`;
+    // Sequential collision-resistant format: STU20260001
+    const code = `STU2026${String(newStudentId).padStart(4, '0')}`;
+    const autoUserId = code.toLowerCase();
 
     const newUser = {
       id: newUserId,
-      user_id,
-      email,
-      full_name,
-      phone: phone || '+91 98000 00000',
+      user_id: autoUserId,
+      email: cleanEmail,
+      full_name: full_name.trim(),
+      phone: cleanPhone,
       dob: dob || '2005-01-01',
       portal_type: 'STUDENT',
       role: 'Student',
@@ -174,9 +196,9 @@
       student_status: 'Joined',
       completion_approved: 0,
       notification_sent: 0,
-      full_name,
-      email,
-      phone: phone || '+91 98000 00000',
+      full_name: full_name.trim(),
+      email: cleanEmail,
+      phone: cleanPhone,
       courses: [{
         id: (ctx.db.student_course_enrollments || []).length + 1,
         student_id: newStudentId,
@@ -198,8 +220,10 @@
     MockDB.save(ctx.db);
 
     return {
-      message: `Student account created! Your Student ID is ${code}. Please login now.`,
-      student_code: code
+      success: true,
+      message: `Registration Successful! Your unique Student ID is ${code}. Login with User ID: ${autoUserId}`,
+      student_code: code,
+      user_id: autoUserId
     };
   }
 
@@ -618,23 +642,39 @@
         summary: { totalInflow, totalOutflow, netBalance: totalInflow - totalOutflow }
       };
     }
-    const { category, amount, reference_no, notes } = ctx.body;
+    const { category, amount, reference_no, notes, bank_name, branch_name, ifsc_code, payment_method, account_number } = ctx.body;
+    const numAmount = Number(amount);
+    if (isNaN(numAmount) || numAmount <= 0) {
+      return { error: 'Please enter a valid numeric transaction amount.' };
+    }
+
     const newId = records.length + 1;
     const txnId = `TXN-2026-${String(newId).padStart(3, '0')}`;
     const newRec = {
       id: newId,
       transaction_id: txnId,
-      category,
-      amount: Number(amount),
-      transaction_date: new Date().toISOString().slice(0, 10),
+      category: category || 'Donation Inflow',
+      amount: numAmount,
+      transaction_date: ctx.body.transaction_date || new Date().toISOString().slice(0, 10),
       payment_status: 'Completed',
-      reference_no: reference_no || '',
-      notes: notes || ''
+      reference_no: reference_no || `REF-${Date.now()}`,
+      payment_method: payment_method || 'NEFT / RTGS',
+      bank_name: bank_name || 'State Bank of India',
+      branch_name: branch_name || 'Fort Main Branch',
+      ifsc_code: ifsc_code || 'SBIN0000300',
+      account_number: account_number || '',
+      notes: notes || '',
+      approved_by: 'Admin'
     };
     ctx.db.finance_records = ctx.db.finance_records || [];
-    ctx.db.finance_records.push(newRec);
+    ctx.db.finance_records.unshift(newRec);
     MockDB.save(ctx.db);
-    return { message: 'Finance transaction booked successfully', transaction_id: txnId };
+    return {
+      success: true,
+      message: `Finance transaction booked successfully! Amount: ₹${numAmount.toLocaleString('en-IN')}`,
+      transaction_id: txnId,
+      record: newRec
+    };
   }
 
   function getCurrentUserSession() {
@@ -1709,12 +1749,465 @@
     };
   }
 
+  
+  window.INDIAN_BANKS_DATA = [
+  {
+    "name": "State Bank of India",
+    "branches": [
+      {
+        "branch": "Mumbai Main Branch (Fort)",
+        "ifsc": "SBIN0000300"
+      },
+      {
+        "branch": "New Delhi Main Branch (Parliament St)",
+        "ifsc": "SBIN0000691"
+      },
+      {
+        "branch": "Bengaluru Main Branch (St. Marks Rd)",
+        "ifsc": "SBIN0000813"
+      },
+      {
+        "branch": "Chennai Main Branch (George Town)",
+        "ifsc": "SBIN0000800"
+      },
+      {
+        "branch": "Kolkata Main Branch (Strand Rd)",
+        "ifsc": "SBIN0000001"
+      },
+      {
+        "branch": "Hyderabad Main Branch (Bank Street)",
+        "ifsc": "SBIN0000847"
+      },
+      {
+        "branch": "Pune Main Branch",
+        "ifsc": "SBIN0000454"
+      },
+      {
+        "branch": "Ahmedabad Main Branch (Bhadra)",
+        "ifsc": "SBIN0000301"
+      }
+    ]
+  },
+  {
+    "name": "HDFC Bank",
+    "branches": [
+      {
+        "branch": "Mumbai - Fort Branch",
+        "ifsc": "HDFC0000060"
+      },
+      {
+        "branch": "Mumbai - Nariman Point Branch",
+        "ifsc": "HDFC0000004"
+      },
+      {
+        "branch": "New Delhi - Connaught Place",
+        "ifsc": "HDFC0000003"
+      },
+      {
+        "branch": "Bengaluru - Kasturba Road",
+        "ifsc": "HDFC0000009"
+      },
+      {
+        "branch": "Chennai - ITC Centre Anna Salai",
+        "ifsc": "HDFC0000005"
+      },
+      {
+        "branch": "Hyderabad - Lakdikapul",
+        "ifsc": "HDFC0000021"
+      },
+      {
+        "branch": "Pune - Bhandarkar Road",
+        "ifsc": "HDFC0000007"
+      }
+    ]
+  },
+  {
+    "name": "ICICI Bank",
+    "branches": [
+      {
+        "branch": "Mumbai - Backbay Reclamation (Nariman Point)",
+        "ifsc": "ICIC0000004"
+      },
+      {
+        "branch": "Mumbai - Bandra Kurla Complex (BKC)",
+        "ifsc": "ICIC0000544"
+      },
+      {
+        "branch": "New Delhi - Connaught Place",
+        "ifsc": "ICIC0000007"
+      },
+      {
+        "branch": "Bengaluru - M G Road",
+        "ifsc": "ICIC0000002"
+      },
+      {
+        "branch": "Chennai - Nungambakkam",
+        "ifsc": "ICIC0000001"
+      },
+      {
+        "branch": "Hyderabad - Begumpet",
+        "ifsc": "ICIC0000008"
+      }
+    ]
+  },
+  {
+    "name": "Axis Bank",
+    "branches": [
+      {
+        "branch": "Mumbai - Corporate Office (Worli)",
+        "ifsc": "UTIB0000004"
+      },
+      {
+        "branch": "Mumbai - Fort (Sir P M Road)",
+        "ifsc": "UTIB0000005"
+      },
+      {
+        "branch": "New Delhi - Statesman House (Barakhamba)",
+        "ifsc": "UTIB0000007"
+      },
+      {
+        "branch": "Bengaluru - M G Road",
+        "ifsc": "UTIB0000009"
+      },
+      {
+        "branch": "Chennai - Mylapore",
+        "ifsc": "UTIB0000006"
+      }
+    ]
+  },
+  {
+    "name": "Punjab National Bank",
+    "branches": [
+      {
+        "branch": "New Delhi - Parliament Street",
+        "ifsc": "PUNB0000100"
+      },
+      {
+        "branch": "Mumbai - Fort Brady House",
+        "ifsc": "PUNB0001300"
+      },
+      {
+        "branch": "Kolkata - Brabourne Road",
+        "ifsc": "PUNB0000800"
+      },
+      {
+        "branch": "Bengaluru - City Branch",
+        "ifsc": "PUNB0001700"
+      }
+    ]
+  },
+  {
+    "name": "Bank of Baroda",
+    "branches": [
+      {
+        "branch": "Vadodara - Mandvi Main Branch",
+        "ifsc": "BARB0MANDVI"
+      },
+      {
+        "branch": "Mumbai - Corporate Centre (BKC)",
+        "ifsc": "BARB0BCCMUM"
+      },
+      {
+        "branch": "Mumbai - Fort Main Branch",
+        "ifsc": "BARB0FORTXX"
+      },
+      {
+        "branch": "New Delhi - Parliament Street",
+        "ifsc": "BARB0PARLIA"
+      }
+    ]
+  },
+  {
+    "name": "Canara Bank",
+    "branches": [
+      {
+        "branch": "Bengaluru - Head Office (J C Road)",
+        "ifsc": "CNRB0000001"
+      },
+      {
+        "branch": "Mumbai - Fort",
+        "ifsc": "CNRB0000100"
+      },
+      {
+        "branch": "New Delhi - Connaught Circus",
+        "ifsc": "CNRB0000150"
+      },
+      {
+        "branch": "Chennai - Mount Road",
+        "ifsc": "CNRB0000200"
+      }
+    ]
+  },
+  {
+    "name": "Union Bank of India",
+    "branches": [
+      {
+        "branch": "Mumbai - Samachar Marg (Fort)",
+        "ifsc": "UBIN0530018"
+      },
+      {
+        "branch": "New Delhi - F-Block Connaught Place",
+        "ifsc": "UBIN0530786"
+      },
+      {
+        "branch": "Bengaluru - Gandhinagar",
+        "ifsc": "UBIN0530026"
+      }
+    ]
+  },
+  {
+    "name": "Indian Bank",
+    "branches": [
+      {
+        "branch": "Chennai - Harbour Main Branch",
+        "ifsc": "IDIB000H003"
+      },
+      {
+        "branch": "Mumbai - Fort Branch",
+        "ifsc": "IDIB000F008"
+      },
+      {
+        "branch": "New Delhi - Connaught Place",
+        "ifsc": "IDIB000N002"
+      }
+    ]
+  },
+  {
+    "name": "Kotak Mahindra Bank",
+    "branches": [
+      {
+        "branch": "Mumbai - Nariman Point (Bakhtawar)",
+        "ifsc": "KKBK0000958"
+      },
+      {
+        "branch": "Mumbai - BKC Kalina",
+        "ifsc": "KKBK0000631"
+      },
+      {
+        "branch": "New Delhi - K.G. Marg",
+        "ifsc": "KKBK0000172"
+      },
+      {
+        "branch": "Bengaluru - M.G. Road",
+        "ifsc": "KKBK0000422"
+      }
+    ]
+  },
+  {
+    "name": "IDFC FIRST Bank",
+    "branches": [
+      {
+        "branch": "Mumbai - BKC Naman Chambers",
+        "ifsc": "IDFB0040101"
+      },
+      {
+        "branch": "New Delhi - Barakhamba Road",
+        "ifsc": "IDFB0020101"
+      },
+      {
+        "branch": "Bengaluru - Residency Road",
+        "ifsc": "IDFB0040102"
+      }
+    ]
+  },
+  {
+    "name": "Yes Bank",
+    "branches": [
+      {
+        "branch": "Mumbai - Worli Indiabulls Finance",
+        "ifsc": "YESB0000001"
+      },
+      {
+        "branch": "New Delhi - D-Block Connaught Place",
+        "ifsc": "YESB0000002"
+      }
+    ]
+  },
+  {
+    "name": "Bank of India",
+    "branches": [
+      {
+        "branch": "Mumbai - Fort Main Branch",
+        "ifsc": "BKID0000001"
+      },
+      {
+        "branch": "New Delhi - Parliament Street",
+        "ifsc": "BKID0006000"
+      }
+    ]
+  },
+  {
+    "name": "Central Bank of India",
+    "branches": [
+      {
+        "branch": "Mumbai - Chandramukhi Nariman Point",
+        "ifsc": "CBIN0280001"
+      },
+      {
+        "branch": "New Delhi - Parliament Street",
+        "ifsc": "CBIN0280003"
+      }
+    ]
+  },
+  {
+    "name": "Indian Overseas Bank",
+    "branches": [
+      {
+        "branch": "Chennai - Central Office Anna Salai",
+        "ifsc": "IOBA0000001"
+      },
+      {
+        "branch": "Mumbai - Fort",
+        "ifsc": "IOBA0000014"
+      }
+    ]
+  },
+  {
+    "name": "UCO Bank",
+    "branches": [
+      {
+        "branch": "Kolkata - BTM Sarani Head Office",
+        "ifsc": "UCBA0000001"
+      },
+      {
+        "branch": "Mumbai - D N Road Fort",
+        "ifsc": "UCBA0000021"
+      }
+    ]
+  },
+  {
+    "name": "Federal Bank",
+    "branches": [
+      {
+        "branch": "Aluva - Head Office",
+        "ifsc": "FDRL0001001"
+      },
+      {
+        "branch": "Mumbai - Fort",
+        "ifsc": "FDRL0001201"
+      }
+    ]
+  },
+  {
+    "name": "IndusInd Bank",
+    "branches": [
+      {
+        "branch": "Mumbai - Opera House",
+        "ifsc": "INDB0000001"
+      },
+      {
+        "branch": "New Delhi - Barakhamba Road",
+        "ifsc": "INDB0000005"
+      }
+    ]
+  },
+  {
+    "name": "AU Small Finance Bank",
+    "branches": [
+      {
+        "branch": "Jaipur - C-Scheme Main Branch",
+        "ifsc": "AUBL0002001"
+      },
+      {
+        "branch": "Mumbai - Bandra West",
+        "ifsc": "AUBL0002041"
+      }
+    ]
+  }
+];
+
+  
+  function handleRegisterTrainer(ctx) {
+    const { full_name, email, phone, specialization, qualification, dob } = ctx.body;
+    if (!full_name || !email || !phone || !specialization) {
+      return { error: 'Full name, email, mobile number, and specialization are required.' };
+    }
+
+    const cleanPhone = String(phone).replace(/\D/g, '');
+    if (cleanPhone.length !== 10) {
+      return { error: 'Please enter a valid 10-digit mobile number.' };
+    }
+
+    const cleanEmail = String(email).trim().toLowerCase();
+
+    // Check duplicate trainer
+    const existing = (ctx.db.users || []).find(u => 
+      (u.email && u.email.toLowerCase() === cleanEmail) || 
+      (u.phone && String(u.phone).replace(/\D/g, '') === cleanPhone)
+    );
+    if (existing) {
+      return { error: 'A trainer registration with this Email or Mobile Number already exists.' };
+    }
+
+    const newUserId = (ctx.db.users || []).length + 1;
+    const newTrainerId = (ctx.db.trainers || []).length + 1;
+    // Sequential collision-resistant format: TRN20260001
+    const code = `TRN2026${String(newTrainerId).padStart(4, '0')}`;
+    const autoUserId = code.toLowerCase();
+
+    const newUser = {
+      id: newUserId,
+      user_id: autoUserId,
+      email: cleanEmail,
+      full_name: full_name.trim(),
+      phone: cleanPhone,
+      dob: dob || '1985-01-01',
+      portal_type: 'TRAINER',
+      role: 'Trainer',
+      status: 'Active'
+    };
+
+    const newTrainer = {
+      id: newTrainerId,
+      user_id: newUserId,
+      trainer_code: code,
+      full_name: full_name.trim(),
+      email: cleanEmail,
+      phone: cleanPhone,
+      specialization: specialization.trim(),
+      qualification: qualification || 'Master Trainer & Industry Specialist',
+      dob: dob || '1985-01-01',
+      approval_status: 'Approved'
+    };
+
+    ctx.db.users = ctx.db.users || [];
+    ctx.db.users.push(newUser);
+    ctx.db.trainers = ctx.db.trainers || [];
+    ctx.db.trainers.push(newTrainer);
+    MockDB.save(ctx.db);
+
+    return {
+      success: true,
+      message: `Trainer Registration Successful! Your unique Trainer ID is ${code}. Login with User ID: ${autoUserId}`,
+      trainer_code: code,
+      user_id: autoUserId
+    };
+  }
+
+  
+  function handleAdminDonorsList(ctx) {
+    const donors = ctx.db.donors || [];
+    const donations = ctx.db.donations || [];
+    const mapped = donors.map(d => {
+      const dDonations = donations.filter(item => item.donor_id === d.id || item.donor_code === d.donor_code);
+      const total = dDonations.reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
+      return {
+        ...d,
+        donation_count: dDonations.length,
+        total_contributed: total,
+        total_donated: total
+      };
+    });
+    return { donors: mapped };
+  }
+
   const staticRoutes = {
     'POST:/api/auth/login': handleAuthLogin,
     'GET:/api/auth/me': handleAuthMe,
     'POST:/api/auth/logout': handleAuthLogout,
     'POST:/api/auth/register-student': handleRegisterStudent,
     'POST:/api/auth/register-donor': handleRegisterDonor,
+    'POST:/api/auth/register-trainer': handleRegisterTrainer,
     'GET:/api/admin/overview': handleAdminOverview,
     'GET:/api/admin/special-dates': handleAdminSpecialDates,
     'GET:/api/admin/programs': handleAdminPrograms,
@@ -1729,7 +2222,7 @@
     'GET:/api/admin/certificates': handleCertificates,
     'POST:/api/admin/certificates/generate': handleCertificates,
     'GET:/api/certificates/verify': handleCertificates,
-    'GET:/api/admin/donors': ctx => ({ donors: ctx.db.donors || [] }),
+    'GET:/api/admin/donors': handleAdminDonorsList,
     'GET:/api/admin/donations': handleAdminDonations,
     'GET:/api/admin/trainers': handleAdminTrainers,
     'GET:/api/admin/events': handleAdminEvents,
