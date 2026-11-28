@@ -212,8 +212,8 @@ function renderMultiPortalLanding(container) {
               if (opt === 'STUDENT') {
                 return `<div style="border:1px dashed #0284c7; background:#f0f9ff; padding:20px; border-radius:16px; margin-bottom:20px;">
                   <h4 style="font-size:15px; font-weight:800; color:#0369a1; margin-bottom:4px; display:flex; align-items:center; gap:6px;"><span class="material-icons-round" style="font-size:18px;">school</span> New Student? Register Account</h4>
-                  <p style="font-size:12px; color:#0c4a6e; margin-bottom:12px;">Create your student account with instant Student Code generation.</p>
-                  <button class="btn btn-primary" style="background:#0284c7; width:100%;" onclick="openStudentRegistrationModal()">Create Student Profile</button>
+                  <p style="font-size:12px; color:#0c4a6e; margin-bottom:12px;">Student login IDs are provisioned via Admin control and backend automation.</p>
+                  <div style="font-size:11.5px; color:#0369a1; background:#e0f2fe; padding:8px 12px; border-radius:8px; font-weight:600;">🔒 Student accounts are authorized and created through the Admin Module.</div>
                 </div>`;
               }
               if (opt === 'DONOR') {
@@ -337,7 +337,6 @@ function renderPortalShell(container) {
   } else if (portal === 'DONOR') {
     menuItems = [
       { id: 'dashboard', label: 'Donor Overview', icon: 'dashboard' },
-      { id: 'my_tasks', label: 'My Assigned Action Items', icon: 'task' },
       { id: 'contribute', label: 'Submit Donation', icon: 'payments' },
       { id: 'history', label: 'Donation History & Window', icon: 'history' },
       { id: 'tax_certs', label: '80G Tax Exemption', icon: 'receipt_long' },
@@ -510,7 +509,6 @@ function renderPortalView() {
     },
     DONOR: {
       dashboard: renderDonorDashboard,
-      my_tasks: renderPersonalTasksView,
       contribute: renderDonorContributeView,
       history: renderDonorHistoryView,
       tax_certs: renderDonorTaxCertsView,
@@ -874,6 +872,22 @@ async function renderSpecialDatesView(mount) {
         </table>
       </div>
     </div>
+
+    <!-- Admin-Controlled User Account Creation: Create Student Login -->
+    <div style="margin-top:24px; padding:18px 24px; background:#f0f9ff; border:1.5px dashed #0284c7; border-radius:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
+      <div>
+        <h4 style="margin:0 0 4px 0; font-size:15px; font-weight:800; color:#0369a1; display:flex; align-items:center; gap:6px;">
+          <span class="material-icons-round" style="font-size:20px;">account_circle</span> Admin Student Provisioning
+        </h4>
+        <p style="margin:0; font-size:12.5px; color:#0c4a6e;">
+          Provision student accounts with backend automated User ID generation.
+        </p>
+      </div>
+      <button class="btn btn-primary" onclick="openCreateStudentLoginModal('STUDENTS')" style="background:#0284c7; border-color:#0284c7; font-weight:800; padding:10px 20px; border-radius:10px; display:flex; align-items:center; gap:6px;">
+        <span class="material-icons-round" style="font-size:18px;">person_add</span> Create Student Login
+      </button>
+    </div>
+
   `;
 }
 
@@ -2491,8 +2505,16 @@ async function renderAdminDonors(mount) {
                   <td>${d.phone}<br><small style="color:#64748b;">${d.email || '-'}</small></td>
                   <td><code style="background:#e0f2fe; color:#0369a1; padding:3px 8px; border-radius:6px; font-weight:700;">${d.pan_number || 'AAACT2026P'}</code></td>
                   <td><span class="badge badge-blue">${d.donor_category || 'Individual'}</span></td>
-                  <td style="font-weight:800; color:#0f172a;">₹${Number(d.total_contributed || 0).toLocaleString('en-IN')}</td>
-                  <td><strong>${d.donation_count || 0}</strong></td>
+                  <td>
+                    <button class="btn btn-sm" onclick="openDonorContributionHistoryModal(${JSON.stringify(d).replaceAll('"', '&quot;')})" style="background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; font-weight:800; border-radius:14px; padding:3px 10px; cursor:pointer;" title="Click to view full contribution history">
+                      ₹${Number(d.total_contributed || d.total_donated || 0).toLocaleString('en-IN')} 📜
+                    </button>
+                  </td>
+                  <td>
+                    <button class="btn btn-sm btn-secondary" onclick="openDonorContributionHistoryModal(${JSON.stringify(d).replaceAll('"', '&quot;')})" style="font-weight:700; border-radius:14px; padding:3px 10px; cursor:pointer;" title="View ${d.donation_count || 0} contribution records">
+                      <strong>${d.donation_count || 0}</strong> records
+                    </button>
+                  </td>
                 </tr>
               `).join('')
     }
@@ -2576,6 +2598,22 @@ async function renderAdminDonors(mount) {
         </table>
       </div>
     </div>
+
+    <!-- Admin-Controlled User Account Creation: Create Student Login -->
+    <div style="margin-top:24px; padding:18px 24px; background:#f0f9ff; border:1.5px dashed #0284c7; border-radius:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
+      <div>
+        <h4 style="margin:0 0 4px 0; font-size:15px; font-weight:800; color:#0369a1; display:flex; align-items:center; gap:6px;">
+          <span class="material-icons-round" style="font-size:20px;">account_circle</span> Admin Student Provisioning
+        </h4>
+        <p style="margin:0; font-size:12.5px; color:#0c4a6e;">
+          Need to onboard a beneficiary or sponsored student? Provision login with backend automated User ID generation.
+        </p>
+      </div>
+      <button class="btn btn-primary" onclick="openCreateStudentLoginModal('DONORS')" style="background:#0284c7; border-color:#0284c7; font-weight:800; padding:10px 20px; border-radius:10px; display:flex; align-items:center; gap:6px;">
+        <span class="material-icons-round" style="font-size:18px;">person_add</span> Create Student Login
+      </button>
+    </div>
+
   `;
 }
 
@@ -3141,6 +3179,22 @@ async function renderAdminTrainers(mount) {
         </table>
       </div>
     </div>
+
+    <!-- Admin-Controlled User Account Creation: Create Student Login -->
+    <div style="margin-top:24px; padding:18px 24px; background:#f0f9ff; border:1.5px dashed #0284c7; border-radius:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
+      <div>
+        <h4 style="margin:0 0 4px 0; font-size:15px; font-weight:800; color:#0369a1; display:flex; align-items:center; gap:6px;">
+          <span class="material-icons-round" style="font-size:20px;">account_circle</span> Admin Student Provisioning
+        </h4>
+        <p style="margin:0; font-size:12.5px; color:#0c4a6e;">
+          Enrolling candidates for trainers? Generate student logins with backend automation.
+        </p>
+      </div>
+      <button class="btn btn-primary" onclick="openCreateStudentLoginModal('TRAINERS')" style="background:#0284c7; border-color:#0284c7; font-weight:800; padding:10px 20px; border-radius:10px; display:flex; align-items:center; gap:6px;">
+        <span class="material-icons-round" style="font-size:18px;">person_add</span> Create Student Login
+      </button>
+    </div>
+
   `;
 }
 
@@ -3882,11 +3936,14 @@ window.openSubmitDonationModal = function (purposes) {
           <input type="text" id="sd-target" class="form-control" placeholder="e.g. Underprivileged Students Scholarship / Medical Aid">
         </div>
         <div class="form-group">
-          <label class="form-label">Payment Method</label>
-          <select id="sd-method" class="form-control">
-            <option value="Bank Transfer">Bank Transfer (NEFT/RTGS)</option>
-            <option value="UPI">UPI / QR Transfer</option>
+          <label class="form-label">Payment Method *</label>
+          <select id="sd-method" class="form-control" required>
+            <option value="NEFT / Net Banking" selected>NEFT / Net Banking</option>
+            <option value="RTGS / IMPS">RTGS / IMPS Transfer</option>
+            <option value="UPI">UPI / QR Code Transfer</option>
+            <option value="NFT / Digital Asset">NFT / Digital Asset Contribution</option>
             <option value="Cheque">Cheque Deposit</option>
+            <option value="Demand Draft">Demand Draft (DD)</option>
           </select>
         </div>
         <div class="form-group">
@@ -4002,11 +4059,14 @@ async function renderDonorContributeView(mount) {
               <input type="text" id="sds-target" class="form-control" placeholder="e.g. Rural Girls STEM Scholarship / Medical Rehabilitation">
             </div>
             <div class="form-group">
-              <label class="form-label">Payment Method</label>
-              <select id="sds-method" class="form-control">
-                <option value="Bank Transfer">Bank Transfer (NEFT/RTGS)</option>
-                <option value="UPI">UPI / QR Transfer</option>
+              <label class="form-label">Payment Method *</label>
+              <select id="sds-method" class="form-control" required>
+                <option value="NEFT / Net Banking" selected>NEFT / Net Banking</option>
+                <option value="RTGS / IMPS">RTGS / IMPS Transfer</option>
+                <option value="UPI">UPI / QR Code Transfer</option>
+                <option value="NFT / Digital Asset">NFT / Digital Asset Contribution</option>
                 <option value="Cheque">Cheque Deposit</option>
+                <option value="Demand Draft">Demand Draft (DD)</option>
               </select>
             </div>
             <div class="form-group">
@@ -4296,16 +4356,17 @@ async function renderDonorProfileSettingsView(mount) {
         <form id="donor-profile-settings-form">
           <div class="form-grid">
             <div class="form-group full-width">
-              <label class="form-label">Full Name</label>
-              <input type="text" class="form-control" value="${d.full_name}" disabled>
+              <label class="form-label">Full Name (Editable Profile Name) *</label>
+              <input type="text" id="dp-name" class="form-control" value="${d.full_name}" required placeholder="Donor Name">
             </div>
             <div class="form-group">
               <label class="form-label">Unique Donor ID (Permanent)</label>
-              <input type="text" class="form-control" value="${d.donor_code}" disabled>
+              <input type="text" class="form-control" value="${d.donor_code}" disabled style="background:#f1f5f9; font-weight:700;">
             </div>
             <div class="form-group">
-              <label class="form-label">Income Tax PAN (For 80G Receipts)</label>
-              <input type="text" id="dp-pan" class="form-control" value="${d.pan_number || 'AAACT2026P'}" placeholder="ABCDE1234F">
+              <label class="form-label">Income Tax PAN (Permanently Locked) 🔒</label>
+              <input type="text" id="dp-pan" class="form-control" value="${d.pan_number || 'AAACT2026P'}" disabled readonly style="background:#f8fafc; font-weight:800; color:#0369a1; border:1px solid #cbd5e1;" title="PAN number is permanently locked after registration and cannot be modified.">
+              <small style="color:#64748b; font-size:11px;">🔒 PAN number is permanently locked and cannot be changed.</small>
             </div>
             <div class="form-group">
               <label class="form-label">Contact Phone</label>
@@ -4344,18 +4405,27 @@ async function renderDonorProfileSettingsView(mount) {
 
   document.getElementById('donor-profile-settings-form').onsubmit = async (e) => {
     e.preventDefault();
+    const updatedName = document.getElementById('dp-name').value;
     const res = await api('/api/donor/profile', {
       method: 'PUT',
       body: JSON.stringify({
+        full_name: updatedName,
         phone: document.getElementById('dp-phone').value,
         email: document.getElementById('dp-email').value,
-        pan_number: document.getElementById('dp-pan').value,
         address: document.getElementById('dp-address').value,
         current_password: document.getElementById('dp-curr-pass').value,
         new_password: document.getElementById('dp-new-pass').value
       })
     });
+    if (res.error) {
+      showToast(res.error, 'error');
+      return;
+    }
     showToast(res.message);
+    if (state.currentUser) {
+      state.currentUser.full_name = updatedName;
+    }
+    void renderDonorProfileSettingsView(document.getElementById('portal-content-mount'));
   };
 }
 
@@ -5064,8 +5134,9 @@ window.openDonorRegistrationModal = function () {
           <input type="email" id="rd-email" class="form-control" required placeholder="donor@domain.com">
         </div>
         <div class="form-group">
-          <label class="form-label">Contact Phone *</label>
-          <input type="tel" id="rd-phone" class="form-control" required placeholder="+91 ...">
+          <label class="form-label">Contact Phone (Exactly 10 Digits) *</label>
+          <input type="tel" id="rd-phone" class="form-control" required maxlength="15" placeholder="e.g. 9820012345">
+          <small style="color:#64748b; font-size:11px;">Must contain exactly 10 digits.</small>
         </div>
         <div class="form-group">
           <label class="form-label">Password *</label>
@@ -5080,8 +5151,9 @@ window.openDonorRegistrationModal = function () {
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">PAN Number (for 80G Tax Exemption)</label>
-          <input type="text" id="rd-pan" class="form-control" placeholder="ABCDE1234F" style="text-transform:uppercase;">
+          <label class="form-label">PAN Number (Permanent - 6 Letters + 4 Digits) *</label>
+          <input type="text" id="rd-pan" class="form-control" required maxlength="10" placeholder="e.g. ABCDEF1234" style="text-transform:uppercase; font-weight:700;">
+          <small style="color:#64748b; font-size:11px;">Must be 6 alphabets followed by 4 digits. Locked permanently upon registration.</small>
         </div>
         <div class="form-group">
           <label class="form-label">Date of Birth / Inception Date</label>
@@ -5097,19 +5169,42 @@ window.openDonorRegistrationModal = function () {
 
   document.getElementById('reg-donor-form').onsubmit = async (e) => {
     e.preventDefault();
+    const panVal = (document.getElementById('rd-pan').value || '').trim().toUpperCase();
+    const phoneVal = (document.getElementById('rd-phone').value || '').trim();
+    
+    // PAN number validation: exactly 10 characters, 6 alphabetic followed by 4 numeric
+    const panPattern = /^[A-Z]{6}[0-9]{4}$/;
+    if (!panPattern.test(panVal)) {
+      showToast('Please enter a valid PAN number.', 'error');
+      document.getElementById('rd-pan').focus();
+      return;
+    }
+
+    // Phone number validation: exactly 10 digits
+    const digitsOnlyPhone = phoneVal.replace(/\D/g, '');
+    if (digitsOnlyPhone.length !== 10) {
+      showToast('Please enter a valid phone number.', 'error');
+      document.getElementById('rd-phone').focus();
+      return;
+    }
+
     const res = await api('/api/auth/register-donor', {
       method: 'POST',
       body: JSON.stringify({
         full_name: document.getElementById('rd-name').value,
         user_id: document.getElementById('rd-uid').value,
         email: document.getElementById('rd-email').value,
-        phone: document.getElementById('rd-phone').value,
+        phone: digitsOnlyPhone,
         password: document.getElementById('rd-pass').value,
         donor_category: document.getElementById('rd-cat').value,
-        pan_number: document.getElementById('rd-pan').value,
+        pan_number: panVal,
         dob: document.getElementById('rd-dob').value
       })
     });
+    if (res.error) {
+      showToast(res.error, 'error');
+      return;
+    }
     closeModal();
     showToast(res.message);
   };
@@ -7262,4 +7357,152 @@ window.openEventAttendanceCohortModal = async function(ev) {
       </div>
     </div>
   `);
+};
+
+
+window.openDonorContributionHistoryModal = async function(donorJson) {
+  const d = typeof donorJson === 'string' ? JSON.parse(donorJson) : donorJson;
+  const donRes = await api('/api/admin/donations');
+  const allDonations = donRes.donations || [];
+  const donorDonations = allDonations.filter(don => 
+    don.donor_id === d.id || 
+    don.donor_code === d.donor_code || 
+    don.donor_name === d.full_name
+  );
+
+  const total = donorDonations.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+
+  showModal(`Contribution History: ${d.full_name} (${d.donor_code})`, `
+    <div style="font-family:'Plus Jakarta Sans', sans-serif;">
+      <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:18px;">
+        <div>
+          <div style="font-size:16px; font-weight:800; color:#154d34;">${d.full_name}</div>
+          <div style="font-size:12.5px; color:#64748b;">Donor Code: <strong>${d.donor_code}</strong> &bull; PAN: <code>${d.pan_number || 'AAACT2026P'}</code> &bull; Phone: ${d.phone}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px; text-transform:uppercase; color:#64748b; font-weight:700;">Total Contributions</div>
+          <div style="font-size:20px; font-weight:900; color:#0f766e;">₹${Number(total).toLocaleString('en-IN')}</div>
+          <span class="badge badge-green" style="font-size:10.5px;">${donorDonations.length} ${donorDonations.length === 1 ? 'Record' : 'Records'}</span>
+        </div>
+      </div>
+
+      <div class="table-responsive" style="max-height:360px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:10px;">
+        <table class="data-table" style="margin:0;">
+          <thead>
+            <tr>
+              <th>Receipt No</th>
+              <th>Date</th>
+              <th>Exact Amount</th>
+              <th>Payment Method</th>
+              <th>Transaction Ref / UTR</th>
+              <th>Cause / Purpose</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${donorDonations.length === 0 ? `<tr><td colspan="7" class="empty-state">No contribution records found for this donor.</td></tr>` :
+              donorDonations.map(don => `
+                <tr>
+                  <td style="font-weight:800; color:#154d34;">${don.receipt_no}</td>
+                  <td>${don.donation_date || 'N/A'}</td>
+                  <td style="font-weight:900; color:#0f172a; font-size:13.5px;">₹${Number(don.amount).toLocaleString('en-IN')}</td>
+                  <td><span class="badge badge-blue">${don.payment_method || 'NEFT'}</span></td>
+                  <td><code style="font-size:11.5px; background:#f1f5f9; padding:2px 6px; border-radius:4px;">${don.payment_reference || 'N/A'}</code></td>
+                  <td><strong>${don.purpose_name}</strong></td>
+                  <td><span class="badge ${don.payment_status === 'Verified' || don.payment_status === 'Approved' ? 'badge-green' : 'badge-yellow'}">${don.payment_status || 'Approved'}</span></td>
+                </tr>
+              `).join('')
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="modal-footer" style="padding-top:18px; margin:18px -24px -24px; display:flex; justify-content:flex-end;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">Close</button>
+      </div>
+    </div>
+  `);
+};
+
+
+// 8. Admin-Controlled Student Login Account Creation (Backend Automation generated User ID)
+window.openCreateStudentLoginModal = function(sourceModule) {
+  showModal('Create Student Login (Backend Automation)', `
+    <form id="admin-create-student-login-form">
+      <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:10px; padding:12px 16px; margin-bottom:16px;">
+        <div style="display:flex; align-items:center; gap:8px; color:#0369a1; font-weight:700; font-size:13px; margin-bottom:4px;">
+          <span class="material-icons-round" style="font-size:18px;">smart_toy</span> Backend Automation Governance
+        </div>
+        <p style="font-size:12px; color:#0c4a6e; margin:0;">
+          The User ID and Student Code are automatically generated by the backend automation system. Students, donors, and trainers cannot manually specify User IDs.
+        </p>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group full-width">
+          <label class="form-label">Name *</label>
+          <input type="text" id="asl-name" class="form-control" required placeholder="Enter student's full name">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email ID *</label>
+          <input type="email" id="asl-email" class="form-control" required placeholder="student@example.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone Number (10 Digits) *</label>
+          <input type="tel" id="asl-phone" class="form-control" required maxlength="14" placeholder="98XXXXXXXX">
+        </div>
+      </div>
+
+      <div style="background:#f8fafc; border:1px dashed #cbd5e1; border-radius:8px; padding:10px 14px; margin-top:14px; font-size:12px; color:#64748b;">
+        <strong>Automated Provisioning:</strong> Initial login password will be set to <code>student123</code>. The student can sign in immediately once backend automation completes.
+      </div>
+
+      <div class="modal-footer" style="padding-top:20px; margin:20px -24px -24px; display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="background:#0284c7; border-color:#0284c7;">
+          <span class="material-icons-round" style="font-size:16px; vertical-align:middle; margin-right:4px;">person_add</span> Create Student Login
+        </button>
+      </div>
+    </form>
+  `);
+
+  document.getElementById('admin-create-student-login-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('asl-name').value.trim();
+    const email = document.getElementById('asl-email').value.trim();
+    const phone = document.getElementById('asl-phone').value.trim();
+
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length !== 10) {
+      showToast('Please enter a valid phone number.', 'error');
+      document.getElementById('asl-phone').focus();
+      return;
+    }
+
+    const res = await api('/api/admin/create-student-login', {
+      method: 'POST',
+      body: JSON.stringify({
+        full_name: name,
+        email: email,
+        phone: cleanPhone
+      })
+    });
+
+    if (res.error) {
+      showToast(res.error, 'error');
+      return;
+    }
+
+    closeModal();
+    showToast(res.message);
+
+    // Refresh current module view if in Admin
+    if (sourceModule === 'STUDENTS' && typeof renderAdminStudents === 'function') {
+      void renderAdminStudents(document.getElementById('portal-content-mount'));
+    } else if (sourceModule === 'DONORS' && typeof renderAdminDonors === 'function') {
+      void renderAdminDonors(document.getElementById('portal-content-mount'));
+    } else if (sourceModule === 'TRAINERS' && typeof renderAdminTrainers === 'function') {
+      void renderAdminTrainers(document.getElementById('portal-content-mount'));
+    }
+  };
 };

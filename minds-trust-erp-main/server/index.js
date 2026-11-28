@@ -274,6 +274,18 @@ app.post('/api/auth/register-donor', (req, res) => {
     return res.status(400).json({ error: 'All marked fields are required.' });
   }
 
+  // PAN validation: exactly 10 characters, 6 alphabets followed by 4 digits
+  const panRegex = /^[A-Z]{6}[0-9]{4}$/i;
+  if (!pan_number || !panRegex.test(pan_number.trim())) {
+    return res.status(400).json({ error: 'Please enter a valid PAN number.' });
+  }
+
+  // Phone validation: exactly 10 digits
+  const cleanPhone = (phone || '').replace(/\D/g, '');
+  if (cleanPhone.length !== 10) {
+    return res.status(400).json({ error: 'Please enter a valid phone number.' });
+  }
+
   const existing = db.prepare('SELECT id FROM users WHERE LOWER(user_id) = LOWER(?) OR LOWER(email) = LOWER(?)').get(user_id, email);
   if (existing) return res.status(400).json({ error: 'User ID or Email already registered.' });
 
@@ -595,6 +607,51 @@ app.get('/api/admin/students', requireAuth('ADMIN'), (req, res) => {
   }
 
   res.json({ students });
+});
+
+
+// 8. Admin-Controlled Student Login Account Creation (Backend Automation generated User ID)
+app.post('/api/admin/create-student-login', requireAuth('ADMIN'), (req, res) => {
+  const { full_name, email, phone } = req.body;
+  if (!full_name || !email || !phone) {
+    return res.status(400).json({ error: 'Name, Email ID, and Phone Number are required.' });
+  }
+
+  const cleanPhone = String(phone).replace(/\D/g, '');
+  if (cleanPhone.length !== 10) {
+    return res.status(400).json({ error: 'Please enter a valid phone number.' });
+  }
+
+  const count = db.prepare('SELECT COUNT(*) as c FROM students').get().c + 1;
+  const autoUserId = `stu_${full_name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8)}_${String(count).padStart(3, '0')}`;
+  const studentCode = `STU-2026-${String(count).padStart(3, '0')}`;
+
+  const existing = db.prepare('SELECT id FROM users WHERE LOWER(user_id) = LOWER(?) OR LOWER(email) = LOWER(?)').get(autoUserId, email);
+  if (existing) {
+    return res.status(400).json({ error: 'A student account with this Email already exists.' });
+  }
+
+  const defaultPassword = 'student123';
+  const hash = bcrypt.hashSync(defaultPassword, 10);
+
+  const uRes = db.prepare(`
+    INSERT INTO users (user_id, full_name, email, phone, password_hash, portal_type, role, status, dob)
+    VALUES (?, ?, ?, ?, ?, 'STUDENT', 'Student', 'Active', '2005-01-01')
+  `).run(autoUserId, full_name.trim(), email.trim().toLowerCase(), cleanPhone, hash);
+
+  db.prepare(`
+    INSERT INTO students (user_id, student_code, enrolled_program, program_code, batch, student_status, academic_status, finance_clearance, dob, joined_date)
+    VALUES (?, ?, 'Full Stack Digital Skills', 'PRG-FSD-01', 'Cohort 2026', 'Joined', 'In Progress', 1, '2005-01-01', ?)
+  `).run(uRes.lastInsertRowid, studentCode, new Date().toISOString().slice(0, 10));
+
+  logAudit(req.session.user.id, req.session.user.full_name, 'ADMIN', 'Backend Automation', `Backend automation created student login ID: ${autoUserId} (${studentCode})`);
+
+  res.json({
+    success: true,
+    message: `Student login created successfully by backend automation! Generated User ID: ${autoUserId} (Student Code: ${studentCode})`,
+    user_id: autoUserId,
+    student_code: studentCode
+  });
 });
 
 app.post('/api/admin/students', requireAuth('ADMIN'), (req, res) => {
@@ -1280,8 +1337,13 @@ app.put('/api/donor/donations/:id', requireAuth('DONOR'), upload.single('support
 
 // Self-service Donor Profile and Password update
 app.put('/api/donor/profile', requireAuth('DONOR'), (req, res) => {
-  const { phone, email, current_password, new_password, pan_number, address } = req.body;
+  const { full_name, phone, email, current_password, new_password, address } = req.body;
   const userId = req.session.user.id;
+
+  if (full_name) {
+    db.prepare('UPDATE users SET full_name = ? WHERE id = ?').run(full_name, userId);
+    db.prepare('UPDATE donors SET full_name = ? WHERE user_id = ?').run(full_name, userId);
+  }
 
   if (new_password) {
     if (!current_password) return res.status(400).json({ error: 'Current password is required to change password.' });
@@ -1296,12 +1358,12 @@ app.put('/api/donor/profile', requireAuth('DONOR'), (req, res) => {
   }
 
   const donor = db.prepare('SELECT id FROM donors WHERE user_id = ?').get(userId);
-  if (donor && (pan_number || address)) {
-    db.prepare('UPDATE donors SET pan_number = COALESCE(?, pan_number), address = COALESCE(?, address) WHERE id = ?').run(pan_number || null, address || null, donor.id);
+  if (donor && address) {
+    db.prepare('UPDATE donors SET address = ? WHERE id = ?').run(address, donor.id);
   }
 
-  logAudit(userId, req.session.user.full_name, 'DONOR', 'Profile Update', 'Updated donor profile settings or password');
-  res.json({ message: 'Donor profile updated successfully.' });
+  logAudit(userId, req.session.user.full_name, 'DONOR', 'Profile Update', 'Updated donor profile settings or password (PAN permanently locked)');
+  res.json({ message: 'Donor profile updated successfully. PAN number remains permanently locked for audit compliance.' });
 });
 
 // =========================================================================

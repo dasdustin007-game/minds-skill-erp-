@@ -50,6 +50,13 @@
 
   function parseRequestBody(rawBody) {
     if (!rawBody) return {};
+    if (typeof FormData !== 'undefined' && rawBody instanceof FormData) {
+      const obj = {};
+      rawBody.forEach((val, key) => {
+        obj[key] = val;
+      });
+      return obj;
+    }
     if (typeof rawBody === 'string') {
       try {
         return JSON.parse(rawBody);
@@ -198,6 +205,19 @@
 
   function handleRegisterDonor(ctx) {
     const { full_name, user_id, email, phone, donor_category, pan_number, dob } = ctx.body;
+    
+    // PAN validation: exactly 10 characters, 6 alphabets followed by 4 digits
+    const panRegex = /^[A-Z]{6}[0-9]{4}$/i;
+    if (!pan_number || !panRegex.test(pan_number.trim())) {
+      return { error: 'Please enter a valid PAN number.' };
+    }
+
+    // Phone validation: exactly 10 digits
+    const cleanPhone = (phone || '').replace(/\D/g, '');
+    if (cleanPhone.length !== 10) {
+      return { error: 'Please enter a valid phone number.' };
+    }
+
     const newUserId = (ctx.db.users || []).length + 1;
     const newDonorId = (ctx.db.donors || []).length + 1;
     const code = `DNR-2026-${String(newDonorId).padStart(3, '0')}`;
@@ -207,7 +227,7 @@
       user_id,
       email,
       full_name,
-      phone: phone || '+91 98000 00000',
+      phone: cleanPhone,
       dob: dob || '1985-01-01',
       portal_type: 'DONOR',
       role: 'Donor',
@@ -220,10 +240,12 @@
       donor_code: code,
       full_name,
       email,
-      phone: phone || '+91 98000 00000',
+      phone: cleanPhone,
       donor_category: donor_category || 'Individual Benefactor',
-      pan_number: pan_number || 'ABCDE1234F',
+      pan_number: pan_number.trim().toUpperCase(),
       total_donated: 0,
+      total_contributed: 0,
+      donation_count: 0,
       verification_status: 'Verified',
       dob: dob || '1985-01-01'
     };
@@ -673,23 +695,31 @@
       donor_code: 'DNR-8891',
       full_name: 'Rajeshwari Singhania',
       email: 'rajeshwari@singhania.com',
-      phone: '+91 98210 99887'
+      phone: '+91 98210 99887',
+      pan_number: 'AAACT2026P'
     };
 
-    const donations = (ctx.db.donations || []).map(don => {
+    // Filter contributions specifically for this donor
+    const rawDonations = (ctx.db.donations || []).filter(don => {
+      if (!donor.id) return true;
+      return don.donor_id === donor.id || don.donor_code === donor.donor_code || don.donor_name === donor.full_name;
+    });
+
+    const donations = rawDonations.map(don => {
       const donationDate = new Date(don.donation_date).getTime();
       const diffDays = Math.floor((Date.now() - donationDate) / (1000 * 60 * 60 * 24));
       return {
         ...don,
         can_edit: diffDays <= 20,
+        window_remaining: Math.max(0, 20 - diffDays),
         days_remaining_to_edit: Math.max(0, 20 - diffDays)
       };
     });
 
     const totalContributed = donations.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
-    const activePledges = donations.filter(d => d.payment_status === 'Approved').length;
+    const activePledges = donations.filter(d => d.payment_status === 'Approved' || d.payment_status === 'Verified').length;
     const purposes = ctx.db.donation_purposes || [];
-    const taxCertificates = ctx.db.donor_tax_certificates || [];
+    const taxCertificates = (ctx.db.donor_tax_certificates || []).filter(t => t.donor_id === donor.id || !donor.id);
     const impactUpdates = ctx.db.donor_impact_updates || [];
 
     return {
@@ -858,9 +888,10 @@
   }
 
   function handleDonorProfileUpdate(ctx) {
-    const { phone, email, pan_number, address } = ctx.body;
+    const { full_name, phone, email, address } = ctx.body;
     const session = getCurrentUserSession();
     if (session) {
+      if (full_name) session.full_name = full_name;
       session.phone = phone || session.phone;
       session.email = email || session.email;
       try {
@@ -868,16 +899,17 @@
       } catch (e) {
         console.debug('SessionStorage error:', e);
       }
-      const d = (ctx.db.donors || []).find(dn => dn.user_id === session.id);
+      const d = (ctx.db.donors || []).find(dn => dn.user_id === session.id || dn.id === session.linked_id);
       if (d) {
+        if (full_name) d.full_name = full_name;
         d.phone = phone || d.phone;
         d.email = email || d.email;
-        if (pan_number) d.pan_number = pan_number;
         if (address) d.address = address;
+        // PAN Number is permanently locked and cannot be edited
       }
       MockDB.save(ctx.db);
     }
-    return { message: 'Donor profile and 80G information saved successfully.' };
+    return { message: 'Donor profile saved successfully. PAN number remains permanently locked for 80G audit compliance.' };
   }
 
   function handleTrainerProfileUpdate(ctx) {
@@ -945,37 +977,54 @@
     const count = (ctx.db.donations || []).length + 1;
     const receiptNo = `REC-2026-${String(count).padStart(4, '0')}`;
     const today = new Date().toISOString().slice(0, 10);
-    const amount = Number(body.amount) || 10000;
+    const session = getCurrentUserSession();
+    const donor = (session?.portal_type === 'DONOR'
+      ? (ctx.db.donors || []).find(d => d.user_id === session.id || d.id === session.linked_id)
+      : null) || (ctx.db.donors || [])[0] || { id: 1, full_name: 'Rajeshwari Singhania', donor_code: 'DNR-8891', pan_number: 'AAACT2026P' };
+
+    const parsedAmount = Number(body.amount);
+    const amount = !isNaN(parsedAmount) && parsedAmount > 0 ? parsedAmount : (Number(body.amount) || 5000);
 
     const newDonation = {
       id: count,
-      donor_id: 1,
+      donor_id: donor.id || 1,
+      donor_name: donor.full_name || 'Rajeshwari Singhania',
+      donor_code: donor.donor_code || 'DNR-8891',
+      pan_number: donor.pan_number || 'AAACT2026P',
       receipt_no: receiptNo,
       amount,
       purpose_name: body.purpose_name || 'Student Education Support',
       beneficiary_target: body.beneficiary_target || 'Underprivileged Students',
       donation_date: today,
-      payment_method: body.payment_method || 'Online Transfer',
+      payment_method: body.payment_method || 'NEFT / Net Banking',
       payment_reference: body.payment_reference || `TXN-REF-${Date.now()}`,
       payment_status: 'Approved',
       doc_status: 'Verified',
-      reason_description: body.reason_description || 'Direct charitable support'
+      reason_description: body.reason_description || 'Direct charitable support',
+      supporting_doc_path: body.supporting_document && typeof body.supporting_document === 'object' ? '/uploads/sample_tax_pan_receipt.pdf' : (body.supporting_doc_path || '/uploads/sample_tax_pan_receipt.pdf')
     };
 
     ctx.db.donations = ctx.db.donations || [];
     ctx.db.donations.unshift(newDonation);
+
+    // Update total_donated on donor record
+    if (donor) {
+      donor.total_donated = (Number(donor.total_donated) || 0) + amount;
+      donor.total_contributed = (Number(donor.total_contributed) || 0) + amount;
+      donor.donation_count = (Number(donor.donation_count) || 0) + 1;
+    }
 
     // Auto-generate 80G tax certificate
     const certNumber = `80G/MINDS/2026-27/${String(count).padStart(4, '0')}`;
     const newTaxCert = {
       id: (ctx.db.donor_tax_certificates || []).length + 1,
       cert_number: certNumber,
-      donor_id: 1,
+      donor_id: donor.id || 1,
       donation_id: count,
       financial_year: '2026-2027',
       eligible_amount: amount,
       exemption_section: 'Section 80G(5)(vi) of Income Tax Act 1961',
-      pan_number: 'AAACT2026P',
+      pan_number: donor.pan_number || 'AAACT2026P',
       issue_date: today,
       verification_hash: `HASH80G-MINDS-${Math.random().toString(36).slice(2, 10).toUpperCase()}`,
       status: 'Generated'
@@ -993,13 +1042,13 @@
       amount,
       transaction_date: today,
       payment_status: 'Completed',
-      reference_no: receiptNo,
-      notes: `Donation from Donor (${body.purpose_name || 'General'})`
+      reference_no: newDonation.payment_reference || receiptNo,
+      notes: `Donation from ${donor.full_name} (${body.purpose_name || 'General'})`
     });
 
     MockDB.save(ctx.db);
     return {
-      message: `Donation of INR ${amount} recorded! Official Receipt #${receiptNo} generated with 80G Tax Exemption.`,
+      message: `Donation of ₹${amount.toLocaleString('en-IN')} recorded successfully! Official Receipt #${receiptNo} generated with 80G Tax Exemption.`,
       receipt_no: receiptNo
     };
   }
@@ -1598,6 +1647,68 @@
     return { events };
   }
 
+  
+  function handleAdminCreateStudentLogin(ctx) {
+    const { full_name, email, phone } = ctx.body || {};
+    if (!full_name || !email || !phone) {
+      return { error: 'Name, Email ID, and Phone Number are required.' };
+    }
+
+    // Phone validation: exactly 10 digits
+    const cleanPhone = String(phone).replace(/\D/g, '');
+    if (cleanPhone.length !== 10) {
+      return { error: 'Please enter a valid phone number.' };
+    }
+
+    // Backend automation generates User ID and Student Code
+    const count = (ctx.db.students || []).length + 1;
+    const autoUserId = `stu_${full_name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8)}_${String(count).padStart(3, '0')}`;
+    const studentCode = `STU-2026-${String(count).padStart(3, '0')}`;
+    const newUserId = (ctx.db.users || []).length + 1;
+
+    const newUser = {
+      id: newUserId,
+      user_id: autoUserId,
+      email: email.trim().toLowerCase(),
+      full_name: full_name.trim(),
+      phone: cleanPhone,
+      dob: '2005-01-01',
+      portal_type: 'STUDENT',
+      role: 'Student',
+      status: 'Active'
+    };
+
+    const newStudent = {
+      id: count,
+      user_id: newUserId,
+      student_code: studentCode,
+      full_name: full_name.trim(),
+      email: email.trim().toLowerCase(),
+      phone: cleanPhone,
+      enrolled_program: 'Full Stack Digital Skills',
+      program_code: 'PRG-FSD-01',
+      program_id: 1,
+      batch: 'Cohort 2026',
+      academic_status: 'In Progress',
+      student_status: 'Joined',
+      finance_clearance: 1,
+      created_by: 'Backend Automation'
+    };
+
+    ctx.db.users = ctx.db.users || [];
+    ctx.db.users.push(newUser);
+    ctx.db.students = ctx.db.students || [];
+    ctx.db.students.push(newStudent);
+    MockDB.save(ctx.db);
+
+    return {
+      success: true,
+      message: `Student login created successfully by backend automation! Generated User ID: ${autoUserId} (Student Code: ${studentCode})`,
+      user_id: autoUserId,
+      student_code: studentCode
+    };
+  }
+
   const staticRoutes = {
     'POST:/api/auth/login': handleAuthLogin,
     'GET:/api/auth/me': handleAuthMe,
@@ -1612,6 +1723,7 @@
     'GET:/api/admin/students/calendar-events': handleAdminStudentsCalendar,
     'GET:/api/admin/students': handleAdminStudents,
     'POST:/api/admin/students': handleAdminStudents,
+    'POST:/api/admin/create-student-login': handleAdminCreateStudentLogin,
     'POST:/api/admin/students/run-7day-automation': handle7DayNotificationAutomation,
     'POST:/api/admin/certificates/trigger-engine': () => ({ message: 'Automated certificate engine executed.' }),
     'GET:/api/admin/certificates': handleCertificates,
