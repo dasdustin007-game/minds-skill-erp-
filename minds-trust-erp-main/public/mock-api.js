@@ -177,6 +177,7 @@
       full_name: full_name.trim(),
       phone: cleanPhone,
       dob: dob || '2005-01-01',
+      password_hash: password || 'student123',
       portal_type: 'STUDENT',
       role: 'Student',
       status: 'Active'

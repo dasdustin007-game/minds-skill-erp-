@@ -209,11 +209,20 @@ function renderMultiPortalLanding(container) {
           <div>
             ${(() => {
               const opt = state.selectedLoginOption;
-              if (opt === 'STUDENT') {
+                            if (opt === 'STUDENT') {
                 return `<div style="border:1px dashed #0284c7; background:#f0f9ff; padding:20px; border-radius:16px; margin-bottom:20px;">
-                  <h4 style="font-size:15px; font-weight:800; color:#0369a1; margin-bottom:4px; display:flex; align-items:center; gap:6px;"><span class="material-icons-round" style="font-size:18px;">school</span> New Student? Register Account</h4>
-                  <p style="font-size:12px; color:#0c4a6e; margin-bottom:12px;">Student login IDs are provisioned via Admin control and backend automation.</p>
-                  <div style="font-size:11.5px; color:#0369a1; background:#e0f2fe; padding:8px 12px; border-radius:8px; font-weight:600;">🔒 Student accounts are authorized and created through the Admin Module.</div>
+                  <h4 style="font-size:15px; font-weight:800; color:#0369a1; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+                    <span class="material-icons-round" style="font-size:20px;">school</span> New Student? Register Account
+                  </h4>
+                  <p style="font-size:12px; color:#0c4a6e; margin-bottom:14px; line-height:1.5;">
+                    Enrolling in MINDS TRUST courses? Create your student account with automated ID provisioning.
+                  </p>
+                  <button class="btn btn-primary" style="background:#0284c7; border-color:#0284c7; width:100%; font-weight:800; padding:10px 16px; border-radius:10px; display:flex; align-items:center; justify-content:center; gap:6px; margin-bottom:10px;" onclick="openStudentRegistrationModal()">
+                    <span class="material-icons-round" style="font-size:18px;">person_add</span> Register Account
+                  </button>
+                  <div style="font-size:12px; color:#64748b; text-align:center;">
+                    Already have an account? <a href="javascript:void(0)" onclick="document.getElementById('login-identifier').focus()" style="color:#0284c7; font-weight:700; text-decoration:none;">Sign In</a>
+                  </div>
                 </div>`;
               }
               if (opt === 'DONOR') {
@@ -5151,17 +5160,17 @@ window.printOfficialCertificate = function (c) {
 // -------------------------------------------------------------
 
 window.openStudentRegistrationModal = function () {
-  showModal('New Student Registration', `
-    <form id="reg-student-form">
-      <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:10px; padding:12px 14px; margin-bottom:16px; font-size:12px; color:#0369a1;">
-        <span class="material-icons-round" style="font-size:16px; vertical-align:middle; margin-right:4px;">verified_user</span>
-        <strong>Automated Student ID:</strong> Your unique Student ID (e.g. <code>STU20260001</code>) and secure login credentials will be generated automatically by the backend system upon registration.
+  showModal('Student Account Registration', `
+    <form id="reg-student-form" style="font-family:'Plus Jakarta Sans', sans-serif;">
+      <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:10px; padding:12px 14px; margin-bottom:16px; font-size:12.5px; color:#0369a1;">
+        <span class="material-icons-round" style="font-size:16px; vertical-align:middle; margin-right:4px;">school</span>
+        <strong>Student Enrollment:</strong> Fill in your details below to register. Your unique Student ID (e.g. <code>STU20260001</code>) will be automatically generated upon submission.
       </div>
 
       <div class="form-grid">
         <div class="form-group full-width">
           <label class="form-label">Full Name *</label>
-          <input type="text" id="rs-name" class="form-control" required placeholder="Enter student full name">
+          <input type="text" id="rs-name" class="form-control" required placeholder="Enter your full name">
         </div>
         <div class="form-group">
           <label class="form-label">Email Address *</label>
@@ -5172,24 +5181,39 @@ window.openStudentRegistrationModal = function () {
           <input type="tel" id="rs-phone" class="form-control" required maxlength="10" placeholder="98XXXXXXXX">
         </div>
         <div class="form-group">
-          <label class="form-label">Date of Birth</label>
-          <input type="date" id="rs-dob" class="form-control" value="2005-01-01">
+          <label class="form-label">Create Password *</label>
+          <input type="password" id="rs-pass" class="form-control" required minlength="6" placeholder="At least 6 characters">
         </div>
         <div class="form-group">
-          <label class="form-label">Program of Interest *</label>
+          <label class="form-label">Confirm Password *</label>
+          <input type="password" id="rs-pass-confirm" class="form-control" required minlength="6" placeholder="Re-enter password">
+        </div>
+        <div class="form-group full-width">
+          <label class="form-label">Course / Training Program *</label>
           <select id="rs-prog" class="form-control" required>
             <option value="Full Stack Digital Skills" selected>Full Stack Digital Skills (FSD)</option>
             <option value="Advanced AI & Data Analytics">Advanced AI & Data Analytics (AIA)</option>
             <option value="Healthcare & Nursing Assistant">Healthcare & Nursing Assistant (HNA)</option>
             <option value="Accounting & Financial ERP Operations">Accounting & Financial ERP Operations (ACC)</option>
+            <option value="Digital Media & Graphic Design">Digital Media & Graphic Design (DMG)</option>
           </select>
         </div>
+        <div class="form-group">
+          <label class="form-label">Date of Birth</label>
+          <input type="date" id="rs-dob" class="form-control" value="2005-01-01">
+        </div>
       </div>
-      <div class="modal-footer" style="padding-top:20px; margin:20px -24px -24px; display:flex; justify-content:flex-end; gap:10px;">
-        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-        <button type="submit" class="btn btn-primary" style="background:#0284c7; border-color:#0284c7; font-weight:800;">
-          Complete Registration
-        </button>
+
+      <div class="modal-footer" style="padding-top:20px; margin:20px -24px -24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div style="font-size:12px; color:#64748b;">
+          Already have an account? <a href="javascript:void(0)" onclick="closeModal(); document.getElementById('login-identifier')?.focus();" style="color:#0284c7; font-weight:700; text-decoration:none;">Sign In</a>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" style="background:#0284c7; border-color:#0284c7; font-weight:800; padding:10px 20px;">
+            <span class="material-icons-round" style="font-size:16px; vertical-align:middle; margin-right:4px;">person_add</span> Register Account
+          </button>
+        </div>
       </div>
     </form>
   `);
@@ -5199,8 +5223,16 @@ window.openStudentRegistrationModal = function () {
     const name = document.getElementById('rs-name').value.trim();
     const email = document.getElementById('rs-email').value.trim();
     const phone = document.getElementById('rs-phone').value.trim();
-    const dob = document.getElementById('rs-dob').value;
+    const password = document.getElementById('rs-pass').value;
+    const confirmPass = document.getElementById('rs-pass-confirm').value;
     const prog = document.getElementById('rs-prog').value;
+    const dob = document.getElementById('rs-dob').value;
+
+    if (password !== confirmPass) {
+      showToast('Passwords do not match. Please check and try again.', 'error');
+      document.getElementById('rs-pass-confirm').focus();
+      return;
+    }
 
     const cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length !== 10) {
@@ -5215,8 +5247,9 @@ window.openStudentRegistrationModal = function () {
         full_name: name,
         email: email,
         phone: cleanPhone,
-        dob: dob,
-        enrolled_program: prog
+        password: password,
+        enrolled_program: prog,
+        dob: dob
       })
     });
 
@@ -5231,7 +5264,7 @@ window.openStudentRegistrationModal = function () {
         <span class="material-icons-round" style="font-size:56px; color:#16a34a; margin-bottom:12px;">check_circle</span>
         <h3 style="font-size:18px; font-weight:800; color:#154d34; margin:0 0 8px 0;">Student Account Activated</h3>
         <p style="font-size:13px; color:#475569; margin-bottom:18px;">
-          Your student registration has been created and verified by backend automation.
+          Your student registration has been created successfully. You can now log in.
         </p>
 
         <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:12px; padding:16px; text-align:left; max-width:340px; margin:0 auto 20px;">
@@ -5239,11 +5272,11 @@ window.openStudentRegistrationModal = function () {
           <div style="font-size:18px; font-weight:900; color:#0369a1; letter-spacing:0.5px;">${res.student_code}</div>
           <div style="border-top:1px dashed #cbd5e1; margin:10px 0; padding-top:8px;">
             <div style="font-size:12px; color:#64748b;">Login User ID: <strong>${res.user_id || res.student_code.toLowerCase()}</strong></div>
-            <div style="font-size:12px; color:#64748b; margin-top:2px;">Initial Password: <code>student123</code></div>
+            <div style="font-size:12px; color:#64748b; margin-top:2px;">Role: <span class="badge badge-blue">Student</span></div>
           </div>
         </div>
 
-        <button class="btn btn-primary" style="width:100%; max-width:340px; font-weight:800; padding:10px;" onclick="closeModal(); prefillMulti('${res.user_id || res.student_code.toLowerCase()}', 'student123', 'STUDENT');">
+        <button class="btn btn-primary" style="width:100%; max-width:340px; font-weight:800; padding:10px;" onclick="closeModal(); prefillMulti('${res.user_id || res.student_code.toLowerCase()}', '${password}', 'STUDENT');">
           Proceed to Student Login
         </button>
       </div>

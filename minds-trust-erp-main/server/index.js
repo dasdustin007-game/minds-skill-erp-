@@ -240,32 +240,45 @@ app.post('/api/auth/logout', (req, res) => {
 // =========================================================================
 
 app.post('/api/auth/register-student', (req, res) => {
-  const { user_id, full_name, email, phone, password, enrolled_program, dob } = req.body;
-  if (!user_id || !full_name || !email || !password || !enrolled_program) {
-    return res.status(400).json({ error: 'All marked fields are required.' });
+  const { full_name, email, phone, password, enrolled_program, dob } = req.body;
+  if (!full_name || !email || !phone) {
+    return res.status(400).json({ error: 'Full name, email, and mobile number are required.' });
   }
 
-  const existing = db.prepare('SELECT id FROM users WHERE LOWER(user_id) = LOWER(?) OR LOWER(email) = LOWER(?)').get(user_id, email);
-  if (existing) return res.status(400).json({ error: 'User ID or Email already registered.' });
+  const cleanPhone = String(phone).replace(/\D/g, '');
+  if (cleanPhone.length !== 10) {
+    return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number.' });
+  }
 
-  const hash = bcrypt.hashSync(password, 10);
+  const cleanEmail = String(email).trim().toLowerCase();
+  const existing = db.prepare('SELECT id FROM users WHERE LOWER(email) = LOWER(?) OR phone = ?').get(cleanEmail, cleanPhone);
+  if (existing) return res.status(400).json({ error: 'A student account with this Email or Mobile Number already exists.' });
+
+  const count = db.prepare('SELECT COUNT(*) as c FROM students').get().c + 1;
+  const studentCode = `STU2026${String(count).padStart(4, '0')}`;
+  const autoUserId = studentCode.toLowerCase();
+  const passToHash = password && password.trim().length >= 6 ? password.trim() : 'student123';
+  const hash = bcrypt.hashSync(passToHash, 10);
+
   const uRes = db.prepare(`
     INSERT INTO users (user_id, full_name, email, phone, password_hash, portal_type, role, status, dob)
     VALUES (?, ?, ?, ?, ?, 'STUDENT', 'Student', 'Active', ?)
-  `).run(user_id, full_name, email, phone || null, hash, dob || null);
-
-  const count = db.prepare('SELECT COUNT(*) as c FROM students').get().c + 1;
-  const studentCode = `STU-2026-${String(count).padStart(3, '0')}`;
+  `).run(autoUserId, full_name.trim(), cleanEmail, cleanPhone, hash, dob || null);
 
   db.prepare(`
     INSERT INTO students (user_id, student_code, enrolled_program, batch, academic_status, finance_clearance, dob)
     VALUES (?, ?, ?, 'Cohort 2026', 'Enrolled', 1, ?)
-  `).run(uRes.lastInsertRowid, studentCode, enrolled_program, dob || null);
+  `).run(uRes.lastInsertRowid, studentCode, enrolled_program || 'Full Stack Digital Skills', dob || null);
 
   logAudit(uRes.lastInsertRowid, full_name, 'STUDENT', 'Registration', `Student registered with code: ${studentCode}`);
-  queueEmail(email, full_name, 'Student Account Created - MINDS TRUST ERP', 'REGISTRATION');
+  queueEmail(cleanEmail, full_name, 'Student Account Created - MINDS TRUST ERP', 'REGISTRATION');
 
-  res.json({ message: 'Student account created successfully! You can now log in.', student_code: studentCode });
+  res.json({
+    success: true,
+    message: `Registration Successful! Your unique Student ID is ${studentCode}. Login with User ID: ${autoUserId}`,
+    student_code: studentCode,
+    user_id: autoUserId
+  });
 });
 
 
