@@ -283,7 +283,7 @@ app.post('/api/auth/register-student', (req, res) => {
 
 
 app.post('/api/auth/register-trainer', (req, res) => {
-  const { full_name, email, phone, specialization, qualification, dob } = req.body;
+  const { full_name, email, phone, password, specialization, qualification, dob } = req.body;
   if (!full_name || !email || !phone || !specialization) {
     return res.status(400).json({ error: 'Full name, email, mobile number, and specialization are required.' });
   }
@@ -303,8 +303,8 @@ app.post('/api/auth/register-trainer', (req, res) => {
   const count = db.prepare('SELECT COUNT(*) as c FROM trainers').get().c + 1;
   const code = `TRN2026${String(count).padStart(4, '0')}`;
   const autoUserId = code.toLowerCase();
-  const defaultPassword = 'trainer123';
-  const hash = bcrypt.hashSync(defaultPassword, 10);
+  const passToHash = password && password.trim().length >= 6 ? password.trim() : 'trainer123';
+  const hash = bcrypt.hashSync(passToHash, 10);
 
   const u = db.prepare(`
     INSERT INTO users (user_id, full_name, email, phone, password_hash, portal_type, role, status, dob)

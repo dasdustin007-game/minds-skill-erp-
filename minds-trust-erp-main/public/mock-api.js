@@ -2119,7 +2119,7 @@
 
   
   function handleRegisterTrainer(ctx) {
-    const { full_name, email, phone, specialization, qualification, dob } = ctx.body;
+    const { full_name, email, phone, specialization, qualification, dob, password } = ctx.body;
     if (!full_name || !email || !phone || !specialization) {
       return { error: 'Full name, email, mobile number, and specialization are required.' };
     }
@@ -2153,6 +2153,7 @@
       full_name: full_name.trim(),
       phone: cleanPhone,
       dob: dob || '1985-01-01',
+      password_hash: password || 'trainer123',
       portal_type: 'TRAINER',
       role: 'Trainer',
       status: 'Active'

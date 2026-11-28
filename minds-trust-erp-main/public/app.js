@@ -237,8 +237,19 @@ function renderMultiPortalLanding(container) {
                   <strong>Admin Security Policy:</strong> Admin accounts have complete access to all modules including Finance. Public registration is restricted to authorized personnel.
                 </div>`;
               }
-              return `<div style="border:1px solid #e2e8f0; background:#f8fafc; padding:16px; border-radius:14px; margin-bottom:18px; font-size:12px; color:#475569;">
-                <strong>Trainer Onboarding:</strong> Trainer profiles are provisioned and assigned courses via Admin control.
+                            return `<div style="border:1px dashed #7e22ce; background:#faf5ff; padding:20px; border-radius:16px; margin-bottom:20px;">
+                <h4 style="font-size:15px; font-weight:800; color:#7e22ce; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+                  <span class="material-icons-round" style="font-size:20px;">co_present</span> New Trainer? Register Account
+                </h4>
+                <p style="font-size:12px; color:#581c87; margin-bottom:14px; line-height:1.5;">
+                  Interested in mentoring MINDS TRUST cohorts? Create your faculty account with automated Trainer ID provisioning.
+                </p>
+                <button class="btn btn-primary" style="background:#7e22ce; border-color:#7e22ce; width:100%; font-weight:800; padding:10px 16px; border-radius:10px; display:flex; align-items:center; justify-content:center; gap:6px; margin-bottom:10px;" onclick="openTrainerRegistrationModal()">
+                  <span class="material-icons-round" style="font-size:18px;">assignment_ind</span> Register Account
+                </button>
+                <div style="font-size:12px; color:#64748b; text-align:center;">
+                  Already have an account? <a href="javascript:void(0)" onclick="document.getElementById('login-identifier').focus()" style="color:#7e22ce; font-weight:700; text-decoration:none;">Sign In</a>
+                </div>
               </div>`;
             })()}
 
@@ -7678,10 +7689,10 @@ window.openCreateStudentLoginModal = function(sourceModule) {
 
 window.openTrainerRegistrationModal = function () {
   showModal('Trainer Faculty Registration', `
-    <form id="reg-trainer-form">
-      <div style="background:#faf5ff; border:1px solid #e9d5ff; border-radius:10px; padding:12px 14px; margin-bottom:16px; font-size:12px; color:#7e22ce;">
+    <form id="reg-trainer-form" style="font-family:'Plus Jakarta Sans', sans-serif;">
+      <div style="background:#faf5ff; border:1px solid #e9d5ff; border-radius:10px; padding:12px 14px; margin-bottom:16px; font-size:12.5px; color:#7e22ce;">
         <span class="material-icons-round" style="font-size:16px; vertical-align:middle; margin-right:4px;">co_present</span>
-        <strong>Automated Trainer ID:</strong> Your unique Trainer ID (e.g. <code>TRN20260001</code>) and credentials will be automatically generated upon registration.
+        <strong>Trainer Faculty Enrollment:</strong> Register as a certified trainer. Your unique Trainer ID (e.g. <code>TRN20260001</code>) and credentials will be automatically generated upon submission.
       </div>
 
       <div class="form-grid">
@@ -7698,19 +7709,43 @@ window.openTrainerRegistrationModal = function () {
           <input type="tel" id="rt-phone" class="form-control" required maxlength="10" placeholder="98XXXXXXXX">
         </div>
         <div class="form-group">
-          <label class="form-label">Specialization / Core Domain *</label>
-          <input type="text" id="rt-spec" class="form-control" required placeholder="e.g. Full Stack Web Development / AI / Healthcare">
+          <label class="form-label">Create Password *</label>
+          <input type="password" id="rt-pass" class="form-control" required minlength="6" placeholder="At least 6 characters">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirm Password *</label>
+          <input type="password" id="rt-pass-confirm" class="form-control" required minlength="6" placeholder="Re-enter password">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Course / Specialization Domain *</label>
+          <select id="rt-spec" class="form-control" required>
+            <option value="Full Stack Web & Cloud Engineering" selected>Full Stack Web & Cloud Engineering</option>
+            <option value="Artificial Intelligence & Data Analytics">Artificial Intelligence & Data Analytics</option>
+            <option value="Healthcare & Nursing Assistantship">Healthcare & Nursing Assistantship</option>
+            <option value="Accounting & Enterprise Resource Planning">Accounting & Enterprise Resource Planning</option>
+            <option value="Digital Media, UI/UX & Graphic Design">Digital Media, UI/UX & Graphic Design</option>
+          </select>
         </div>
         <div class="form-group">
           <label class="form-label">Highest Qualification</label>
           <input type="text" id="rt-qual" class="form-control" placeholder="e.g. M.Tech, Ph.D, Certified Corporate Trainer">
         </div>
+        <div class="form-group">
+          <label class="form-label">Date of Birth</label>
+          <input type="date" id="rt-dob" class="form-control" value="1988-01-01">
+        </div>
       </div>
-      <div class="modal-footer" style="padding-top:20px; margin:20px -24px -24px; display:flex; justify-content:flex-end; gap:10px;">
-        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-        <button type="submit" class="btn btn-primary" style="background:#7e22ce; border-color:#7e22ce; font-weight:800;">
-          Submit Trainer Registration
-        </button>
+
+      <div class="modal-footer" style="padding-top:20px; margin:20px -24px -24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div style="font-size:12px; color:#64748b;">
+          Already have an account? <a href="javascript:void(0)" onclick="closeModal(); document.getElementById('login-identifier')?.focus();" style="color:#7e22ce; font-weight:700; text-decoration:none;">Sign In</a>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" style="background:#7e22ce; border-color:#7e22ce; font-weight:800; padding:10px 20px;">
+            <span class="material-icons-round" style="font-size:16px; vertical-align:middle; margin-right:4px;">assignment_ind</span> Register Account
+          </button>
+        </div>
       </div>
     </form>
   `);
@@ -7720,8 +7755,17 @@ window.openTrainerRegistrationModal = function () {
     const name = document.getElementById('rt-name').value.trim();
     const email = document.getElementById('rt-email').value.trim();
     const phone = document.getElementById('rt-phone').value.trim();
+    const password = document.getElementById('rt-pass').value;
+    const confirmPass = document.getElementById('rt-pass-confirm').value;
     const spec = document.getElementById('rt-spec').value.trim();
     const qual = document.getElementById('rt-qual').value.trim();
+    const dob = document.getElementById('rt-dob').value;
+
+    if (password !== confirmPass) {
+      showToast('Passwords do not match. Please check and try again.', 'error');
+      document.getElementById('rt-pass-confirm').focus();
+      return;
+    }
 
     const cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length !== 10) {
@@ -7736,8 +7780,10 @@ window.openTrainerRegistrationModal = function () {
         full_name: name,
         email: email,
         phone: cleanPhone,
+        password: password,
         specialization: spec,
-        qualification: qual
+        qualification: qual,
+        dob: dob
       })
     });
 
@@ -7752,7 +7798,7 @@ window.openTrainerRegistrationModal = function () {
         <span class="material-icons-round" style="font-size:56px; color:#7e22ce; margin-bottom:12px;">check_circle</span>
         <h3 style="font-size:18px; font-weight:800; color:#581c87; margin:0 0 8px 0;">Trainer Profile Created</h3>
         <p style="font-size:13px; color:#475569; margin-bottom:18px;">
-          Trainer registration has been processed with automated backend ID provisioning.
+          Trainer registration has been processed with automated backend ID provisioning. You can now log in.
         </p>
 
         <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:12px; padding:16px; text-align:left; max-width:340px; margin:0 auto 20px;">
@@ -7760,11 +7806,11 @@ window.openTrainerRegistrationModal = function () {
           <div style="font-size:18px; font-weight:900; color:#7e22ce; letter-spacing:0.5px;">${res.trainer_code}</div>
           <div style="border-top:1px dashed #cbd5e1; margin:10px 0; padding-top:8px;">
             <div style="font-size:12px; color:#64748b;">Login User ID: <strong>${res.user_id || res.trainer_code.toLowerCase()}</strong></div>
-            <div style="font-size:12px; color:#64748b; margin-top:2px;">Initial Password: <code>trainer123</code></div>
+            <div style="font-size:12px; color:#64748b; margin-top:2px;">Role: <span class="badge" style="background:#f3e8ff; color:#7e22ce; font-weight:700;">Trainer</span></div>
           </div>
         </div>
 
-        <button class="btn btn-primary" style="width:100%; max-width:340px; background:#7e22ce; border-color:#7e22ce; font-weight:800; padding:10px;" onclick="closeModal(); prefillMulti('${res.user_id || res.trainer_code.toLowerCase()}', 'trainer123', 'TRAINER');">
+        <button class="btn btn-primary" style="width:100%; max-width:340px; background:#7e22ce; border-color:#7e22ce; font-weight:800; padding:10px;" onclick="closeModal(); prefillMulti('${res.user_id || res.trainer_code.toLowerCase()}', '${password}', 'TRAINER');">
           Proceed to Trainer Login
         </button>
       </div>
